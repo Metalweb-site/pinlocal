@@ -41,12 +41,16 @@ export default function ChatsPage() {
   useClickOutside(emojiRef, () => setShowEmoji(false), showEmoji)
 
   useEffect(() => {
+    document.body.classList.toggle('pinlocal-chat-open', Boolean(activeId))
+    return () => document.body.classList.remove('pinlocal-chat-open')
+  }, [activeId])
+
+  useEffect(() => {
     if (authLoading) return
     getPersonalChats()
       .then(res => {
         const list = res.data.conversations ?? []
         setConversations(list)
-        setActiveId(list[0]?.id ?? null)
       })
       .catch(() => toast.error('Could not load chats'))
       .finally(() => setLoading(false))

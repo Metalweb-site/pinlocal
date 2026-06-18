@@ -64,6 +64,9 @@ export default function FeedCard({ post }: FeedCardProps) {
   const media = post.media_urls?.[0]
   const eventMeta = cat === 'Events' ? parseEventPost(post.content_text) : null
   const isPersonalPost = Boolean(post.is_personal_post)
+  const headline = headlineFromPost(post.content_text, cat)
+  const bodyText = bodyFromPost(post.content_text, headline, cat)
+  const postHashtags = buildPostHashtags(cat)
 
   useEffect(() => {
     setLikeCount(post.like_count)
@@ -72,6 +75,12 @@ export default function FeedCard({ post }: FeedCardProps) {
     setShareCount(post.share_count ?? 0)
     setSaved(Boolean(post.is_saved))
   }, [post.like_count, post.is_liked, post.comment_count, post.share_count, post.is_saved])
+
+  useEffect(() => {
+    const modalOpen = commentsOpen || shareOpen
+    document.body.classList.toggle('pinlocal-modal-open', modalOpen)
+    return () => document.body.classList.remove('pinlocal-modal-open')
+  }, [commentsOpen, shareOpen])
 
   const handleJoin = async () => {
     if (isPersonalPost) return
@@ -352,7 +361,7 @@ export default function FeedCard({ post }: FeedCardProps) {
           </div>
         )}
 
-        <button className="absolute right-3 top-4 z-10 grid h-8 w-8 place-items-center rounded-full text-[#44506E] xl:hidden" aria-label="Post options">
+        <button className="absolute right-3 top-4 z-10 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-[#44506E] shadow-[0_8px_18px_rgba(8,18,52,0.08)] backdrop-blur-sm xl:hidden" aria-label="Post options">
           <MoreVertical size={20} />
         </button>
 
@@ -369,8 +378,8 @@ export default function FeedCard({ post }: FeedCardProps) {
                 <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#16B84E]" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="truncate text-[15px] font-black text-[#081234]">{isPersonalPost ? post.author?.username ?? 'Local resident' : post.group?.name ?? 'Unknown Group'}</h2>
+                <div className="flex min-w-0 items-start gap-2 pr-9 xl:pr-0">
+                  <h2 className="min-w-0 flex-1 truncate text-[15px] font-black text-[#081234]">{isPersonalPost ? post.author?.username ?? 'Local resident' : post.group?.name ?? 'Unknown Group'}</h2>
                   <span className="rounded-full px-2 py-1 text-[10px] font-black" style={{ background: `${color}18`, color }}>
                     {isPersonalPost ? 'Personal Post' : post.group?.type === 'private' ? 'Private Group' : cat === 'Events' ? 'Event' : 'Open Group'}
                   </span>
@@ -379,11 +388,11 @@ export default function FeedCard({ post }: FeedCardProps) {
                   {post.pincode} area <span className="mx-2">•</span> {timeAgo(post.created_at)}
                 </p>
                 <h3 className="mt-3 pr-8 text-[15px] font-black leading-snug text-[#081234] xl:mt-4 xl:pr-0 xl:text-[16px]">
-                  {headlineFromPost(post.content_text, cat)}
+                  {headline}
                 </h3>
-                {post.content_text && (
+                {bodyText && (
                   <p className="mt-2 line-clamp-3 text-[14px] font-semibold leading-relaxed text-[#172143] xl:line-clamp-2">
-                    {post.content_text}
+                    {bodyText}
                   </p>
                 )}
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -394,10 +403,9 @@ export default function FeedCard({ post }: FeedCardProps) {
                       <Chip icon={MapPin}>{eventMeta?.venue ?? post.group?.pincode ?? post.pincode}</Chip>
                     </>
                   ) : (
-                    <>
-                      <span className="rounded-[6px] bg-[#EAF7E7] px-2 py-1 text-[11px] font-black text-[#2B7A2B]">#{cat}</span>
-                      <span className="rounded-[6px] bg-[#EAF7E7] px-2 py-1 text-[11px] font-black text-[#2B7A2B]">#Local</span>
-                    </>
+                    postHashtags.map(tag => (
+                      <span key={tag} className="rounded-[6px] bg-[#EAF7E7] px-2 py-1 text-[11px] font-black text-[#2B7A2B]">#{tag}</span>
+                    ))
                   )}
                 </div>
               </div>
@@ -430,11 +438,11 @@ export default function FeedCard({ post }: FeedCardProps) {
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-[#E4E9F4] pt-3 lg:block lg:border-t-0 lg:pt-0">
-            <div className="grid grid-cols-3 gap-2 lg:block lg:space-y-4">
-              <StatButton onClick={handleLike} active={liked} icon={<Heart size={17} fill={liked ? '#F04438' : 'none'} />}>{formatCount(likeCount)}</StatButton>
-              <StatButton onClick={openComments} icon={<MessageCircle size={17} />}>{formatCount(commentCount)}</StatButton>
-              <StatButton onClick={openShare} icon={<Share2 size={17} />}>{formatCount(shareCount)}</StatButton>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E4E9F4] pt-3 lg:block lg:border-t-0 lg:pt-0">
+            <div className="grid w-full grid-cols-3 gap-2 lg:block lg:w-auto lg:space-y-4">
+              <StatButton onClick={handleLike} active={liked} icon={<Heart size={17} fill={liked ? '#F04438' : 'none'} />} label="Likes">{formatCount(likeCount)}</StatButton>
+              <StatButton onClick={openComments} icon={<MessageCircle size={17} />} label="Comments">{formatCount(commentCount)}</StatButton>
+              <StatButton onClick={openShare} icon={<Share2 size={17} />} label="Shares">{formatCount(shareCount)}</StatButton>
             </div>
 
             <div className="flex items-center gap-4 lg:mt-6 lg:block">
@@ -509,7 +517,7 @@ export default function FeedCard({ post }: FeedCardProps) {
       </article>
 
       {commentsOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#081234]/55 px-4 py-6 backdrop-blur-sm sm:items-center">
+        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-[#081234]/55 px-4 py-6 backdrop-blur-sm sm:items-center">
           <div className="w-full max-w-lg overflow-hidden rounded-[14px] border border-[#E1E7F3] bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#E4E9F4] p-4">
               <div>
@@ -582,7 +590,7 @@ export default function FeedCard({ post }: FeedCardProps) {
       )}
 
       {shareOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#081234]/55 px-4 py-6 backdrop-blur-sm sm:items-center">
+        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-[#081234]/55 px-4 py-6 backdrop-blur-sm sm:items-center">
           <div className="w-full max-w-lg overflow-hidden rounded-[14px] border border-[#E1E7F3] bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#E4E9F4] p-4">
               <div>
@@ -673,6 +681,29 @@ function headlineFromPost(content: string | null, category: string) {
   return `${firstLine.slice(0, 55).trim()}...`
 }
 
+function bodyFromPost(content: string | null, headline: string, category: string) {
+  if (!content?.trim() || category === 'Events') return ''
+  const lines = content
+    .trim()
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+  const headlineKey = headline.replace(/\.\.\.$/, '').trim().toLowerCase()
+  return lines
+    .filter((line, index) => {
+      const normalized = line.toLowerCase()
+      if (index === 0 && (normalized === headlineKey || normalized.startsWith(headlineKey))) return false
+      if (/^(#[\w&-]+\s*)+$/i.test(line)) return false
+      return true
+    })
+    .join('\n')
+}
+
+function buildPostHashtags(category: string) {
+  const tags = [category, 'Local']
+  return Array.from(new Set(tags.map(tag => tag.trim()).filter(Boolean))).slice(0, 3)
+}
+
 function parseEventPost(content: string | null) {
   const text = content ?? ''
   const dateValue = text.match(/^Date:\s*(.+)$/im)?.[1]?.trim()
@@ -703,11 +734,13 @@ function StatButton({
   children,
   icon,
   active,
+  label,
   onClick,
 }: {
   children: React.ReactNode
   icon: React.ReactNode
   active?: boolean
+  label: string
   onClick?: (e: React.MouseEvent) => void
 }) {
   return (
@@ -715,12 +748,14 @@ function StatButton({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex items-center gap-2 text-[13px] font-black transition-colors',
+        'flex min-w-0 items-center justify-center gap-1.5 rounded-[12px] border border-[#E4E9F4] bg-white px-2.5 py-2 text-[12px] font-black shadow-[0_8px_18px_rgba(30,56,104,0.04)] transition-colors lg:justify-start lg:border-0 lg:bg-transparent lg:p-0 lg:text-[13px] lg:shadow-none',
         active ? 'text-[#F04438]' : 'text-[#081234] hover:text-[#075CFF]'
       )}
+      aria-label={label}
     >
       {icon}
-      {children}
+      <span>{children}</span>
+      <span className="hidden text-[11px] font-bold text-[#697391] min-[390px]:inline lg:hidden">{label}</span>
     </button>
   )
 }

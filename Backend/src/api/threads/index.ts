@@ -16,8 +16,17 @@ export async function threadRoutes(app: FastifyInstance) {
   app.get('/:groupId/threads', async (request, reply) => {
     const params = request.params as { groupId: string };
     const membership = await queryOne(
-      `SELECT 1 FROM group_memberships WHERE group_id = $1 AND user_id = $2 AND status = 'active'`,
-      [params.groupId, request.user.id]
+      `
+      SELECT 1
+      FROM group_memberships gm
+      JOIN groups g ON g.id = gm.group_id
+      WHERE gm.group_id = $1
+        AND gm.user_id = $2
+        AND gm.status = 'active'
+        AND COALESCE(g.status, 'active') = 'active'
+        AND g.pincode = $3
+      `,
+      [params.groupId, request.user.id, request.user.active_pincode]
     );
     if (!membership) return forbidden(reply);
 
@@ -50,8 +59,17 @@ export async function threadRoutes(app: FastifyInstance) {
     }
 
     const membership = await queryOne<{ role: string }>(
-      `SELECT role FROM group_memberships WHERE group_id = $1 AND user_id = $2 AND status = 'active'`,
-      [params.groupId, request.user.id]
+      `
+      SELECT gm.role
+      FROM group_memberships gm
+      JOIN groups g ON g.id = gm.group_id
+      WHERE gm.group_id = $1
+        AND gm.user_id = $2
+        AND gm.status = 'active'
+        AND COALESCE(g.status, 'active') = 'active'
+        AND g.pincode = $3
+      `,
+      [params.groupId, request.user.id, request.user.active_pincode]
     );
     if (!membership) return forbidden(reply);
     if (!['admin', 'moderator'].includes(membership.role)) {

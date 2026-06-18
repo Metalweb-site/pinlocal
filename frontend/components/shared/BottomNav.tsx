@@ -70,7 +70,7 @@ export default function BottomNav() {
         </div>
       )}
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 mx-auto flex max-w-2xl items-center justify-around rounded-t-[28px] border-t border-[#E4E9F4] bg-white px-2 shadow-[0_-12px_34px_rgba(8,18,52,0.08)] xl:hidden" style={{ height: '88px', paddingBottom: 'env(safe-area-inset-bottom, 12px)' }}>
+      <nav className="pinlocal-bottom-nav fixed bottom-0 left-0 right-0 z-50 mx-auto flex max-w-2xl items-center justify-around rounded-t-[28px] border-t border-[#E4E9F4] bg-white px-2 shadow-[0_-12px_34px_rgba(8,18,52,0.08)] xl:hidden" style={{ height: '88px', paddingBottom: 'env(safe-area-inset-bottom, 12px)' }}>
         {tabs.map(({ href, icon: Icon, label }) => {
           const isCreate = href === '/create'
           const active = path.startsWith(href) && !isCreate

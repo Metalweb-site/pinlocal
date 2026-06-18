@@ -23,15 +23,23 @@ function pair(a: string, b: string) {
   return a < b ? [a, b] : [b, a];
 }
 
-async function canAccessConversation(conversationId: string, userId: string) {
+async function canAccessConversation(conversationId: string, userId: string, activePincode: string) {
+  if (!activePincode || activePincode === '000000') return false;
   const row = await queryOne(
-    `SELECT 1 FROM personal_conversations WHERE id = $1 AND (user_one_id = $2 OR user_two_id = $2)`,
-    [conversationId, userId]
+    `
+    SELECT 1
+    FROM personal_conversations c
+    JOIN users ou ON ou.id = CASE WHEN c.user_one_id = $2 THEN c.user_two_id ELSE c.user_one_id END
+    WHERE c.id = $1
+      AND (c.user_one_id = $2 OR c.user_two_id = $2)
+      AND $3 IN (ou.primary_pincode, COALESCE(ou.secondary_pincode, ''))
+    `,
+    [conversationId, userId, activePincode]
   );
   return Boolean(row);
 }
 
-async function loadConversation(conversationId: string, viewerId: string) {
+async function loadConversation(conversationId: string, viewerId: string, activePincode: string) {
   return queryOne<PersonalConversation>(
     `
     SELECT
@@ -61,9 +69,11 @@ async function loadConversation(conversationId: string, viewerId: string) {
       ORDER BY created_at DESC
       LIMIT 1
     ) lm ON true
-    WHERE c.id = $1 AND (c.user_one_id = $2 OR c.user_two_id = $2)
+    WHERE c.id = $1
+      AND (c.user_one_id = $2 OR c.user_two_id = $2)
+      AND $3 IN (ou.primary_pincode, COALESCE(ou.secondary_pincode, ''))
     `,
-    [conversationId, viewerId]
+    [conversationId, viewerId, activePincode]
   );
 }
 
@@ -114,10 +124,11 @@ export async function chatRoutes(app: FastifyInstance) {
         ORDER BY created_at DESC
         LIMIT 1
       ) lm ON true
-      WHERE c.user_one_id = $1 OR c.user_two_id = $1
+      WHERE (c.user_one_id = $1 OR c.user_two_id = $1)
+        AND $2 IN (ou.primary_pincode, COALESCE(ou.secondary_pincode, ''))
       ORDER BY c.updated_at DESC
       `,
-      [request.user.id]
+      [request.user.id, request.user.active_pincode]
     );
 
     return reply.send({ conversations });
@@ -133,22 +144,17 @@ export async function chatRoutes(app: FastifyInstance) {
       SELECT id, phone, username, avatar_url, primary_pincode
       FROM users
       WHERE id != $1
+        AND $3 IN (primary_pincode, COALESCE(secondary_pincode, ''))
         AND (
           username ILIKE $2
           OR phone ILIKE $2
-          OR ($3::text IS NOT NULL AND primary_pincode = $3)
-          OR ($3::text IS NOT NULL AND COALESCE(secondary_pincode, '') = $3)
         )
       ORDER BY
-        CASE
-          WHEN $4 IN (primary_pincode, COALESCE(secondary_pincode, '')) THEN 0
-          ELSE 1
-        END,
         username NULLS LAST,
         phone
       LIMIT 12
       `,
-      [request.user.id, `%${search}%`, /^\d{6}$/.test(search) ? search : null, request.user.active_pincode]
+      [request.user.id, `%${search}%`, request.user.active_pincode]
     );
 
     return reply.send({ users });
@@ -163,6 +169,7 @@ export async function chatRoutes(app: FastifyInstance) {
       SELECT *
       FROM users
       WHERE id != $1
+        AND $5 IN (primary_pincode, COALESCE(secondary_pincode, ''))
         AND (
           ($2::uuid IS NOT NULL AND id = $2)
           OR ($3::text IS NOT NULL AND phone = $3)
@@ -170,7 +177,7 @@ export async function chatRoutes(app: FastifyInstance) {
         )
       LIMIT 1
       `,
-      [request.user.id, parsed.data.user_id ?? null, parsed.data.phone ?? null, parsed.data.username ?? null]
+      [request.user.id, parsed.data.user_id ?? null, parsed.data.phone ?? null, parsed.data.username ?? null, request.user.active_pincode]
     );
     if (!target) return notFound(reply, 'User not found');
 
@@ -186,14 +193,14 @@ export async function chatRoutes(app: FastifyInstance) {
     );
     if (!conversation) return notFound(reply, 'Conversation not found');
 
-    const loaded = await loadConversation(conversation.id, request.user.id);
+    const loaded = await loadConversation(conversation.id, request.user.id, request.user.active_pincode);
     return reply.status(201).send({ conversation: loaded });
   });
 
   app.get('/:id/messages', async (request, reply) => {
     const params = request.params as { id: string };
     const q = request.query as { before?: string; page?: string };
-    if (!(await canAccessConversation(params.id, request.user.id))) return forbidden(reply);
+    if (!(await canAccessConversation(params.id, request.user.id, request.user.active_pincode))) return forbidden(reply);
 
     const page = parsePage(q.page);
     const limit = 30;
@@ -225,7 +232,7 @@ export async function chatRoutes(app: FastifyInstance) {
     const parsed = MessageBody.safeParse(request.body);
     if (!parsed.success) return badRequest(reply, 'validation_error', parsed.error.issues[0]?.message ?? 'Invalid input');
     if (!parsed.data.content?.trim() && !parsed.data.media_url && !parsed.data.media_asset_id) return badRequest(reply, 'empty_message', 'Message must include text or media');
-    if (!(await canAccessConversation(params.id, request.user.id))) return forbidden(reply);
+    if (!(await canAccessConversation(params.id, request.user.id, request.user.active_pincode))) return forbidden(reply);
     const mediaAssets = await resolveOwnedMediaAssets(parsed.data.media_asset_id ? [parsed.data.media_asset_id] : undefined, request.user.id);
     const mediaAsset = mediaAssets[0] ?? null;
     const mediaUrl = mediaAsset ? publicMediaUrl(mediaAsset) : (parsed.data.media_url ?? null);
@@ -256,7 +263,7 @@ export async function chatRoutes(app: FastifyInstance) {
 
   app.patch('/:id/read', async (request, reply) => {
     const params = request.params as { id: string };
-    if (!(await canAccessConversation(params.id, request.user.id))) return forbidden(reply);
+    if (!(await canAccessConversation(params.id, request.user.id, request.user.active_pincode))) return forbidden(reply);
 
     const latest = await queryOne<{ id: string }>(
       `

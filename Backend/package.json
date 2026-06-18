@@ -12,6 +12,7 @@
     "seed:sample": "ts-node src/db/seed/index.ts --sample",
     "import:pincodes": "ts-node src/db/seed/index.ts",
     "recompute:localities": "ts-node src/db/locality-consensus/index.ts",
+    "cleanup:pincode-boundaries": "ts-node src/db/cleanup-pincode-boundaries/index.ts",
     "reset:db": "ts-node src/db/reset/index.ts",
     "reset:db:all": "ts-node src/db/reset/index.ts --all"
   },

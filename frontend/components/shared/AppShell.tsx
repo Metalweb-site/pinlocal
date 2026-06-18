@@ -66,6 +66,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [badges, setBadges] = useState<BadgeCounts>({ notifications: 0, groups: 0, chats: 0 })
   const { user } = useAuth(false)
   const socket = useSocket()
+  const isGroupThreadRoute = /^\/groups\/[^/]+\/threads\/[^/]+/.test(pathname)
 
   const refreshBadges = useCallback(async () => {
     try {
@@ -221,13 +222,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      <main className="min-h-screen pb-[96px] xl:ml-[250px] xl:pt-0 xl:pb-0">
+      <main className={cn('min-h-screen xl:ml-[250px] xl:pt-0 xl:pb-0', isGroupThreadRoute ? 'pb-0' : 'pb-[96px]')}>
         {children}
       </main>
 
-      <div className="xl:hidden">
-        <BottomNav />
-      </div>
+      {!isGroupThreadRoute && (
+        <div className="xl:hidden">
+          <BottomNav />
+        </div>
+      )}
     </div>
   )
 }

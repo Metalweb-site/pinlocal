@@ -195,6 +195,11 @@ body {
   padding: 0 16px;
   font-size: 14px;
   font-weight: 800;
+  line-height: 1.2;
+}
+
+.form-input.form-input-with-icon {
+  padding-left: 48px;
 }
 
 .form-textarea {
@@ -321,8 +326,57 @@ body {
   backdrop-filter: blur(14px);
 }
 
+@media (max-width: 640px) {
+  .form-card {
+    border-radius: 16px;
+  }
+
+  .form-hero {
+    border-radius: 18px;
+  }
+
+  .form-section,
+  .form-surface {
+    border-radius: 14px;
+  }
+
+  .form-input,
+  .form-select {
+    height: 52px;
+    font-size: 16px;
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+
+  .form-input.form-input-with-icon {
+    padding-left: 46px;
+  }
+
+  .form-textarea {
+    font-size: 15px;
+    padding: 14px 15px;
+  }
+
+  .form-chip {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    line-height: 1.2;
+  }
+
+  .form-helper {
+    font-size: 11px;
+  }
+}
+
 /* Safe area */
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
+
+body.pinlocal-chat-open .pinlocal-bottom-nav,
+body.pinlocal-modal-open .pinlocal-bottom-nav {
+  display: none;
+}
 .pt-safe { padding-top:    env(safe-area-inset-top,    0px); }
 
 /* Animations */

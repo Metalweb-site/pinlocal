@@ -17,16 +17,21 @@ const ReactionBody = z.object({
   emoji: z.string().min(1).max(16),
 });
 
-async function canAccessThread(threadId: string, userId: string): Promise<boolean> {
+async function canAccessThread(threadId: string, userId: string, activePincode?: string | null): Promise<boolean> {
+  if (!activePincode || activePincode === '000000') return false;
   const row = await queryOne(
     `
     SELECT 1
     FROM threads t
     JOIN groups g ON g.id = t.group_id
     JOIN group_memberships gm ON gm.group_id = t.group_id
-    WHERE t.id = $1 AND gm.user_id = $2 AND gm.status = 'active' AND COALESCE(g.status, 'active') = 'active'
+    WHERE t.id = $1
+      AND gm.user_id = $2
+      AND gm.status = 'active'
+      AND COALESCE(g.status, 'active') = 'active'
+      AND g.pincode = $3
     `,
-    [threadId, userId]
+    [threadId, userId, activePincode]
   );
   return Boolean(row);
 }
@@ -103,7 +108,7 @@ export async function messageRoutes(app: FastifyInstance) {
   app.get('/threads/:threadId/messages', async (request, reply) => {
     const params = request.params as { threadId: string };
     const q = request.query as { before?: string; page?: string };
-    if (!(await canAccessThread(params.threadId, request.user.id))) return forbidden(reply);
+    if (!(await canAccessThread(params.threadId, request.user.id, request.user.active_pincode))) return forbidden(reply);
 
     const page = parsePage(q.page);
     const limit = 30;
@@ -158,7 +163,7 @@ export async function messageRoutes(app: FastifyInstance) {
       return badRequest(reply, 'empty_message', 'Message must include text or media');
     }
 
-    if (!(await canAccessThread(params.threadId, request.user.id))) return forbidden(reply);
+    if (!(await canAccessThread(params.threadId, request.user.id, request.user.active_pincode))) return forbidden(reply);
 
     const message = await createMessage(params.threadId, request.user.id, parsed.data);
     request.server.io?.to(`thread:${params.threadId}`).emit('new_message', { message });
@@ -191,7 +196,7 @@ export async function messageRoutes(app: FastifyInstance) {
 
     const message = await queryOne<Message>('SELECT * FROM messages WHERE id = $1 AND is_deleted = false', [params.id]);
     if (!message) return notFound(reply, 'Message not found');
-    if (!(await canAccessThread(message.thread_id, request.user.id))) return forbidden(reply);
+    if (!(await canAccessThread(message.thread_id, request.user.id, request.user.active_pincode))) return forbidden(reply);
 
     await withTransaction(async (client) => {
       const existing = await client.query<{ emoji: string }>(

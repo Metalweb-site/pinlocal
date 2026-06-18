@@ -16,26 +16,10 @@ export async function feedRoutes(app: FastifyInstance) {
     const mode = ['all', 'for_you', 'trending', 'viral'].includes(rawMode) ? (rawMode === 'all' ? 'for_you' : rawMode) : 'category';
     const category = mode === 'category' ? rawMode : null;
 
-    const accessSql = mode === 'viral'
-      ? `
-        (
-          g.type = 'open'
-          OR gm.status = 'active'
-          OR p.author_user_id = $1
-        )
-      `
-      : `
-        (
-          EXISTS (
-            SELECT 1
-            FROM user_pins up
-            WHERE up.pincode IN (p.pincode, g.pincode, gu.primary_pincode, au.primary_pincode)
-          )
-          OR gm.status = 'active'
-          OR p.author_user_id = $1
-          OR (g.type = 'open' AND p.engagement_score >= 25)
-        )
-      `;
+    const accessSql = `
+      p.pincode = (SELECT active_pincode FROM viewer)
+      AND g.pincode = (SELECT active_pincode FROM viewer)
+    `;
 
     const posts = await query<Post>(
       `
@@ -44,14 +28,6 @@ export async function feedRoutes(app: FastifyInstance) {
           , $6::text AS active_pincode
         FROM users u
         WHERE u.id = $1
-      ),
-      user_pins AS (
-        SELECT DISTINCT unnest(
-          ARRAY[(SELECT active_pincode FROM viewer)]
-          || COALESCE(pm.neighbor_codes, '{}')
-        ) AS pincode
-        FROM viewer u
-        LEFT JOIN pincode_meta pm ON pm.pincode = u.active_pincode
       ),
       viewer_interests AS (
         SELECT unnest(COALESCE((SELECT interests FROM viewer), '{}')) AS interest
@@ -93,7 +69,6 @@ export async function feedRoutes(app: FastifyInstance) {
         gm.role AS viewer_role
       FROM posts p
       JOIN groups g ON g.id = p.group_id
-      JOIN users gu ON gu.id = g.admin_user_id
       JOIN users au ON au.id = p.author_user_id
       CROSS JOIN viewer v
       LEFT JOIN post_likes pl ON pl.post_id = p.id AND pl.user_id = $1
@@ -119,7 +94,7 @@ export async function feedRoutes(app: FastifyInstance) {
       ) recent
       CROSS JOIN LATERAL (
         SELECT
-          CASE WHEN EXISTS (SELECT 1 FROM user_pins up WHERE up.pincode IN (p.pincode, g.pincode, au.primary_pincode)) THEN 35.0 ELSE 0.0 END AS local_boost,
+          CASE WHEN p.pincode = (SELECT active_pincode FROM viewer) THEN 35.0 ELSE 0.0 END AS local_boost,
           CASE WHEN p.category IN (SELECT interest FROM viewer_interests) OR g.category IN (SELECT interest FROM viewer_interests) THEN 22.0 ELSE 0.0 END AS interest_boost,
           CASE WHEN gm.status = 'active' THEN 26.0 ELSE 0.0 END AS membership_boost,
           CASE WHEN p.author_user_id = $1 THEN 8.0 ELSE 0.0 END AS own_boost,

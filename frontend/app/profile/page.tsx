@@ -407,7 +407,7 @@ export default function ProfilePage() {
           </div>
 
           <div className="relative px-4 pb-5">
-            <div className="absolute left-4 top-[-52px] z-10">
+            <div className="absolute left-1/2 top-[-52px] z-10 -translate-x-1/2 sm:left-4 sm:translate-x-0">
               <div className="relative">
                 <div className="rounded-full border-[5px] border-white bg-white shadow-[0_18px_42px_rgba(30,56,104,0.16)]">
                   <Avatar name={userName} src={avatarUrl || user?.avatar_url} size={118} className="!rounded-full" />
@@ -421,25 +421,25 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="min-h-[128px] pl-[136px] pt-4">
-              <div className="min-w-0">
+            <div className="min-h-0 pt-[82px] sm:min-h-[128px] sm:pl-[136px] sm:pt-4">
+              <div className="min-w-0 text-center sm:text-left">
                 <h1 className="text-[24px] font-black leading-[1.05] tracking-[-0.04em] text-[#081234] [overflow-wrap:anywhere]">{userName}</h1>
-                <p className="mt-1 flex flex-wrap items-center gap-2 text-[12px] font-semibold text-[#44506E]">
+                <p className="mt-2 flex flex-wrap items-center justify-center gap-2 text-[12px] font-semibold text-[#44506E] sm:justify-start">
                   {handleValue}
                   <span>&bull;</span>
                   <MapPin size={13} className="text-[#075CFF]" />
                   {pincodeValue}
                 </p>
-                <button onClick={() => setEditing(true)} className="mt-3 inline-flex h-11 items-center gap-2 rounded-[14px] border border-[#C9D6FF] bg-[#F7FAFF] px-4 text-[13px] font-black text-[#075CFF] shadow-[0_10px_24px_rgba(7,92,255,0.08)]">
+                <button onClick={() => setEditing(true)} className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[14px] border border-[#C9D6FF] bg-[#F7FAFF] px-4 text-[13px] font-black text-[#075CFF] shadow-[0_10px_24px_rgba(7,92,255,0.08)] sm:mt-3 sm:w-auto sm:justify-start">
                   Edit Profile
                   <Pencil size={15} />
                 </button>
               </div>
             </div>
 
-            <div className="mt-3">
-              <p className="text-[16px] font-semibold leading-relaxed text-[#081234]">{user?.bio || 'Add a short bio so neighbours know you.'}</p>
-              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-[13px] font-semibold text-[#273560]">
+            <div className="mt-4">
+              <p className="text-[15px] font-semibold leading-relaxed text-[#081234] sm:text-[16px]">{user?.bio || 'Add a short bio so neighbours know you.'}</p>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-3 text-[13px] font-semibold text-[#273560] sm:justify-start">
                 <span className="inline-flex items-center gap-2"><CalendarDays size={15} /> Joined {joined}</span>
                 <span className="inline-flex items-center gap-2"><MapPin size={15} /> {locationLabel}</span>
                 <span className="inline-flex items-center gap-2"><UserRound size={15} /> Member ID: {memberIdLabel}</span>
@@ -476,9 +476,9 @@ export default function ProfilePage() {
           {activeTab === 'Overview' && (
             <>
               <section className="rounded-[20px] border border-[#DDE5F3] bg-white p-5 shadow-[0_18px_44px_rgba(30,56,104,0.06)]">
-                <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-4">
+                <div className="grid gap-4 sm:grid-cols-[96px_minmax(0,1fr)]">
                   <div
-                    className="grid h-[96px] w-[96px] flex-shrink-0 place-items-center rounded-full"
+                    className="mx-auto grid h-[96px] w-[96px] flex-shrink-0 place-items-center rounded-full sm:mx-0"
                     style={{ background: `conic-gradient(#075CFF ${profileStrength * 3.6}deg, #E7EEFF 0deg)` }}
                   >
                     <div
@@ -487,10 +487,10 @@ export default function ProfilePage() {
                       {profileStrength}%
                     </div>
                   </div>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 text-center sm:text-left">
+                    <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <h2 className="min-w-0 flex-1 text-[16px] font-black text-[#081234]">Great progress!</h2>
-                      <div className="shrink-0 rounded-[12px] bg-[#EEF3FF] px-3 py-2 text-center text-[11px] font-black leading-none text-[#075CFF]">
+                      <div className="w-full rounded-[12px] bg-[#EEF3FF] px-3 py-2 text-center text-[11px] font-black leading-tight text-[#075CFF] sm:w-auto sm:shrink-0">
                         {completedChecks} / {checks.length} completed
                       </div>
                     </div>
@@ -506,7 +506,7 @@ export default function ProfilePage() {
                   ))}
                 </div>
 
-                <div className="mt-5 grid grid-cols-2 gap-x-8 gap-y-3">
+                <div className="mt-5 grid grid-cols-1 gap-x-8 gap-y-3 min-[420px]:grid-cols-2">
                   {checks.map(([item, done]) => (
                     <div key={item} className="flex items-center gap-3 text-[13px] font-semibold text-[#273560]">
                       {done ? <CheckCircle2 size={18} className="text-[#16A34A]" /> : <span className="h-[18px] w-[18px] rounded-full border-2 border-[#667085]" />}
@@ -1138,11 +1138,16 @@ function EditPanel({
         <div className="grid gap-4 md:grid-cols-2">
         <label className="block">
           <span className="form-label mb-2">Local area</span>
-          <input value={locationText} onChange={e => setLocationText(e.target.value.slice(0, 120))} placeholder="Versova, Mumbai" className="form-input" />
+          <div className="relative">
+            <MapPin size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#075CFF]" />
+            <input value={locationText} onChange={e => setLocationText(e.target.value.slice(0, 120))} placeholder="Versova, Mumbai" className="form-input form-input-with-icon pr-4" />
+          </div>
+          <span className="form-helper">Add the local area name people around you actually recognize.</span>
         </label>
         <label className="block">
           <span className="form-label mb-2">Website or social link</span>
           <input value={websiteUrl} onChange={e => setWebsiteUrl(e.target.value.trim().slice(0, 180))} placeholder="https://instagram.com/you" className="form-input" />
+          <span className="form-helper">Optional, but useful if you want people to verify your work or page.</span>
         </label>
         </div>
       </div>

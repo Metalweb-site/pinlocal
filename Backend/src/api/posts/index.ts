@@ -33,15 +33,26 @@ async function recalculatePostScore(client: { query: (sql: string, params?: unkn
   await client.query(`UPDATE posts SET ${RECALCULATE_POST_SCORE_SQL} WHERE id = $1`, [postId]);
 }
 
-async function canAccessPost(post: Post, userId: string, primaryPincode?: string | null, secondaryPincode?: string | null) {
-  if (post.author_user_id === userId) return true;
-  if ([primaryPincode, secondaryPincode].includes(post.pincode)) return true;
+async function canAccessPost(post: Post, userId: string, activePincode?: string | null) {
+  if (!activePincode || activePincode === '000000') return false;
+  if (post.pincode !== activePincode) return false;
 
-  const membership = await queryOne(
-    `SELECT 1 FROM group_memberships WHERE group_id = $1 AND user_id = $2 AND status = 'active'`,
-    [post.group_id, userId]
+  const access = await queryOne(
+    `
+    SELECT 1
+    FROM groups g
+    LEFT JOIN group_memberships gm
+      ON gm.group_id = g.id
+      AND gm.user_id = $3
+      AND gm.status = 'active'
+    WHERE g.id = $1
+      AND COALESCE(g.status, 'active') = 'active'
+      AND g.pincode = $2
+      AND (g.type != 'secret' OR gm.user_id IS NOT NULL)
+    `,
+    [post.group_id, activePincode, userId]
   );
-  return Boolean(membership);
+  return Boolean(access);
 }
 
 export async function postRoutes(app: FastifyInstance) {
@@ -75,8 +86,9 @@ export async function postRoutes(app: FastifyInstance) {
             AND gm.status = 'active'
             AND gm.role IN ('admin', 'moderator')
             AND COALESCE(g.status, 'active') = 'active'
+            AND g.pincode = $3
           `,
-          [parsed.data.group_id, request.user.id]
+          [parsed.data.group_id, request.user.id, request.user.active_pincode]
         );
         const group = found.rows[0] ?? null;
         if (!group) throw new Error('group_post_forbidden');
@@ -176,7 +188,7 @@ export async function postRoutes(app: FastifyInstance) {
     const params = request.params as { id: string };
     const post = await queryOne<Post>('SELECT * FROM posts WHERE id = $1', [params.id]);
     if (!post) return notFound(reply, 'Post not found');
-    const canAccess = await canAccessPost(post, request.user.id, request.user.primary_pincode, request.user.secondary_pincode);
+    const canAccess = await canAccessPost(post, request.user.id, request.user.active_pincode);
     if (!canAccess) return forbidden(reply, 'This post is not available in your pincode');
 
     const comments = await query<PostComment>(
@@ -197,7 +209,7 @@ export async function postRoutes(app: FastifyInstance) {
     const params = request.params as { id: string };
     const post = await queryOne<Post>('SELECT * FROM posts WHERE id = $1', [params.id]);
     if (!post) return notFound(reply, 'Post not found');
-    const canAccess = await canAccessPost(post, request.user.id, request.user.primary_pincode, request.user.secondary_pincode);
+    const canAccess = await canAccessPost(post, request.user.id, request.user.active_pincode);
     if (!canAccess) return forbidden(reply, 'This post is not available in your pincode');
 
     const updated = await queryOne<{ share_count: number }>(
@@ -220,7 +232,7 @@ export async function postRoutes(app: FastifyInstance) {
     const params = request.params as { id: string };
     const post = await queryOne<Post>('SELECT * FROM posts WHERE id = $1', [params.id]);
     if (!post) return notFound(reply, 'Post not found');
-    const canAccess = await canAccessPost(post, request.user.id, request.user.primary_pincode, request.user.secondary_pincode);
+    const canAccess = await canAccessPost(post, request.user.id, request.user.active_pincode);
     if (!canAccess) return forbidden(reply, 'This post is not available in your pincode');
 
     const saved = await withTransaction(async (client) => {
@@ -251,7 +263,7 @@ export async function postRoutes(app: FastifyInstance) {
 
     const post = await queryOne<Post>('SELECT * FROM posts WHERE id = $1', [params.id]);
     if (!post) return notFound(reply, 'Post not found');
-    const canAccess = await canAccessPost(post, request.user.id, request.user.primary_pincode, request.user.secondary_pincode);
+    const canAccess = await canAccessPost(post, request.user.id, request.user.active_pincode);
     if (!canAccess) return forbidden(reply, 'This post is not available in your pincode');
 
     const comment = await withTransaction(async (client) => {
@@ -296,9 +308,20 @@ export async function postRoutes(app: FastifyInstance) {
     const post = await queryOne<Post>('SELECT * FROM posts WHERE id = $1', [params.id]);
     if (!post) return notFound(reply, 'Post not found');
 
+    const canAccess = await canAccessPost(post, request.user.id, request.user.active_pincode);
+    if (!canAccess) return forbidden(reply, 'This post is not available in your pincode');
+
     const membership = await queryOne<{ role: string }>(
-      `SELECT role FROM group_memberships WHERE group_id = $1 AND user_id = $2 AND status = 'active'`,
-      [post.group_id, request.user.id]
+      `
+      SELECT gm.role
+      FROM group_memberships gm
+      JOIN groups g ON g.id = gm.group_id
+      WHERE gm.group_id = $1
+        AND gm.user_id = $2
+        AND gm.status = 'active'
+        AND g.pincode = $3
+      `,
+      [post.group_id, request.user.id, request.user.active_pincode]
     );
     if (post.author_user_id !== request.user.id && !['admin', 'moderator'].includes(membership?.role ?? '')) {
       return forbidden(reply);

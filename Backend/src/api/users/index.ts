@@ -628,13 +628,21 @@ export async function userRoutes(app: FastifyInstance) {
     }>(
       `
       SELECT
-        (SELECT COUNT(*) FROM posts WHERE author_user_id = $1)::text AS posts,
-        (SELECT COUNT(*) FROM group_memberships WHERE user_id = $1 AND status = 'active')::text AS groups,
+        (SELECT COUNT(*) FROM posts WHERE author_user_id = $1 AND pincode = $2)::text AS posts,
+        (
+          SELECT COUNT(*)
+          FROM group_memberships gm
+          JOIN groups g ON g.id = gm.group_id
+          WHERE gm.user_id = $1
+            AND gm.status = 'active'
+            AND g.pincode = $2
+            AND COALESCE(g.status, 'active') = 'active'
+        )::text AS groups,
         (SELECT COUNT(*) FROM user_connections WHERE follower_id = $1)::text AS following,
         (SELECT COUNT(*) FROM user_connections WHERE following_id = $1)::text AS followers,
         0::text AS events_attended
       `,
-      [request.user.id]
+      [request.user.id, request.user.active_pincode]
     );
 
     return reply.send({
@@ -715,7 +723,7 @@ export async function userRoutes(app: FastifyInstance) {
       FROM users me
       JOIN users u ON u.id != me.id
       WHERE me.id = $1
-        AND u.primary_pincode = me.primary_pincode
+        AND $2 IN (u.primary_pincode, COALESCE(u.secondary_pincode, ''))
         AND NOT EXISTS (
           SELECT 1 FROM user_connections uc
           WHERE uc.follower_id = $1 AND uc.following_id = u.id
@@ -723,7 +731,7 @@ export async function userRoutes(app: FastifyInstance) {
       ORDER BY u.created_at DESC
       LIMIT 12
       `,
-      [request.user.id]
+      [request.user.id, request.user.active_pincode]
     );
 
     return reply.send({ following, followers, suggestions });
@@ -741,12 +749,14 @@ export async function userRoutes(app: FastifyInstance) {
       FROM posts p
       ${POST_JOINS}
       WHERE p.author_user_id = $1
+        AND p.pincode = $2
+        AND g.pincode = $2
         AND g.type != 'secret'
         AND COALESCE(g.status, 'active') = 'active'
       ORDER BY p.created_at DESC
-      LIMIT $2 OFFSET $3
+      LIMIT $3 OFFSET $4
       `,
-      [request.user.id, limit + 1, offset]
+      [request.user.id, request.user.active_pincode, limit + 1, offset]
     );
 
     return reply.send({
@@ -784,17 +794,12 @@ export async function userRoutes(app: FastifyInstance) {
         (SELECT COUNT(*) FROM user_connections x WHERE x.following_id = u.id)::int AS follower_count
       FROM users u
       WHERE u.id != $1
+        AND $3 IN (u.primary_pincode, COALESCE(u.secondary_pincode, ''))
         AND (
           u.username ILIKE $2
           OR u.phone ILIKE $2
-          OR u.primary_pincode ILIKE $2
-          OR COALESCE(u.secondary_pincode, '') ILIKE $2
         )
       ORDER BY
-        CASE
-          WHEN $3::text IN (u.primary_pincode, COALESCE(u.secondary_pincode, '')) THEN 0
-          ELSE 1
-        END,
         u.username ASC NULLS LAST,
         u.created_at DESC
       LIMIT 20
@@ -833,7 +838,7 @@ export async function userRoutes(app: FastifyInstance) {
         )::int AS mutual_count,
         (SELECT COUNT(*) FROM user_connections uc WHERE uc.following_id = u.id)::int AS follower_count,
         (SELECT COUNT(*) FROM user_connections uc WHERE uc.follower_id = u.id)::int AS following_count,
-        (SELECT COUNT(*) FROM posts p WHERE p.author_user_id = u.id)::int AS post_count,
+        (SELECT COUNT(*) FROM posts p WHERE p.author_user_id = u.id AND p.pincode = $3)::int AS post_count,
         (
           SELECT COUNT(*)
           FROM group_memberships gm
@@ -841,12 +846,14 @@ export async function userRoutes(app: FastifyInstance) {
           WHERE gm.user_id = u.id
             AND gm.status = 'active'
             AND g.type != 'secret'
+            AND g.pincode = $3
             AND COALESCE(g.status, 'active') = 'active'
         )::int AS group_count
       FROM users u
       WHERE u.id = $2
+        AND $3 IN (u.primary_pincode, COALESCE(u.secondary_pincode, ''))
       `,
-      [request.user.id, params.id]
+      [request.user.id, params.id, request.user.active_pincode]
     );
     if (!profile) return notFound(reply, 'User not found');
 
@@ -930,11 +937,12 @@ export async function userRoutes(app: FastifyInstance) {
       WHERE gm.user_id = $1
         AND gm.status = 'active'
         AND g.type != 'secret'
+        AND g.pincode = $2
         AND COALESCE(g.status, 'active') = 'active'
       ORDER BY gm.joined_at DESC
       LIMIT 12
       `,
-      [params.id]
+      [params.id, request.user.active_pincode]
     );
 
     const posts = await query<Post>(
@@ -943,12 +951,14 @@ export async function userRoutes(app: FastifyInstance) {
       FROM posts p
       ${POST_JOINS}
       WHERE p.author_user_id = $2
+        AND p.pincode = $3
+        AND g.pincode = $3
         AND g.type != 'secret'
         AND COALESCE(g.status, 'active') = 'active'
       ORDER BY p.created_at DESC
       LIMIT 12
       `,
-      [request.user.id, params.id]
+      [request.user.id, params.id, request.user.active_pincode]
     );
 
     return reply.send({ user: profile, groups, posts, mutual_connections: mutualConnections, followers, following });
@@ -960,7 +970,10 @@ export async function userRoutes(app: FastifyInstance) {
       return badRequest(reply, 'cannot_follow_self', 'You cannot follow yourself');
     }
 
-    const target = await queryOne<User>('SELECT * FROM users WHERE id = $1', [params.id]);
+    const target = await queryOne<User>(
+      `SELECT * FROM users WHERE id = $1 AND $2 IN (primary_pincode, COALESCE(secondary_pincode, ''))`,
+      [params.id, request.user.active_pincode]
+    );
     if (!target) return notFound(reply, 'User not found');
 
     const inserted = await query(
@@ -1008,12 +1021,14 @@ export async function userRoutes(app: FastifyInstance) {
       JOIN posts p ON p.id = ps.post_id
       ${POST_JOINS}
       WHERE ps.user_id = $1
+        AND p.pincode = $2
+        AND g.pincode = $2
         AND g.type != 'secret'
         AND COALESCE(g.status, 'active') = 'active'
       ORDER BY ps.created_at DESC
-      LIMIT $2 OFFSET $3
+      LIMIT $3 OFFSET $4
       `,
-      [request.user.id, limit + 1, offset]
+      [request.user.id, request.user.active_pincode, limit + 1, offset]
     );
 
     return reply.send({
@@ -1101,11 +1116,13 @@ export async function userRoutes(app: FastifyInstance) {
       LEFT JOIN post_likes pl ON pl.post_id = p.id AND pl.user_id = $1
       LEFT JOIN post_saves psv ON psv.post_id = p.id AND psv.user_id = $1
       WHERE g.type != 'secret'
+        AND p.pincode = $2
+        AND g.pincode = $2
         AND COALESCE(g.status, 'active') = 'active'
       ORDER BY a.created_at DESC
-      LIMIT $2 OFFSET $3
+      LIMIT $3 OFFSET $4
       `,
-      [request.user.id, limit + 1, offset]
+      [request.user.id, request.user.active_pincode, limit + 1, offset]
     );
 
     return reply.send({

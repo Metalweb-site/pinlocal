@@ -160,19 +160,19 @@ export default function ProfileOnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FBFCFF] px-4 py-8 text-[#081234]">
+    <div className="min-h-screen bg-[#FBFCFF] px-4 py-5 text-[#081234] sm:py-8">
       <div className="mx-auto w-full max-w-3xl overflow-hidden form-hero">
-        <div className="border-b border-[#E4E9F4] p-6">
+        <div className="border-b border-[#E4E9F4] p-5 sm:p-6">
           <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-[14px] bg-[#075CFF] text-white shadow-[0_14px_32px_rgba(7,92,255,0.28)]">
             <UserRound size={23} />
           </div>
-          <h1 className="text-[34px] font-black tracking-[-0.05em]">Build your PinLocal profile</h1>
-          <p className="mt-2 max-w-xl text-[14px] font-semibold leading-relaxed text-[#697391]">
+          <h1 className="text-[28px] font-black leading-[1.02] tracking-[-0.05em] sm:text-[34px]">Build your PinLocal profile</h1>
+          <p className="mt-2 max-w-xl text-[13px] font-semibold leading-relaxed text-[#697391] sm:text-[14px]">
             Add the details neighbours need before they trust a post, join your group, or message you.
           </p>
         </div>
 
-        <div className="space-y-6 p-6">
+        <div className="space-y-6 p-4 sm:p-6">
           <div className="form-section overflow-hidden">
             <button type="button" onClick={() => coverRef.current?.click()} className="relative block h-36 w-full overflow-hidden text-left">
               {coverPreview ? <img src={coverPreview} alt="" className="h-full w-full object-cover" /> : <div className="grid h-full w-full place-items-center text-[#697391]"><ImageIcon size={30} /></div>}
@@ -181,14 +181,14 @@ export default function ProfileOnboardingPage() {
                 Cover optional
               </span>
             </button>
-            <div className="flex items-center gap-4 px-5 pb-5">
+            <div className="flex flex-col items-start gap-4 px-4 pb-4 pt-2 sm:flex-row sm:items-center sm:px-5 sm:pb-5">
               <button type="button" onClick={() => fileRef.current?.click()} className="relative -mt-10 h-24 w-24 flex-shrink-0 overflow-hidden rounded-full border-[5px] border-white bg-white shadow-[0_18px_42px_rgba(30,56,104,0.18)]">
                 {avatarPreview ? <img src={avatarPreview} alt="" className="h-full w-full object-cover" /> : <div className="grid h-full w-full place-items-center text-[#697391]"><Camera size={24} /></div>}
                 <span className="absolute inset-x-0 bottom-0 grid h-7 place-items-center bg-[#075CFF]/90 text-[10px] font-black uppercase text-white">
                   {uploading ? 'Uploading' : 'Photo'}
                 </span>
               </button>
-              <div className="min-w-0 pt-4">
+              <div className="min-w-0 pt-0 sm:pt-4">
                 <p className="text-[14px] font-black">Photos are optional</p>
                 <p className="mt-1 text-[12px] font-semibold leading-relaxed text-[#697391]">A real photo helps conversations feel safer, but you can add it later.</p>
               </div>
@@ -221,9 +221,10 @@ export default function ProfileOnboardingPage() {
             </Field>
             <Field label="Local area">
               <div className="relative">
-                <MapPin size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#075CFF]" />
-                <input value={locationText} onChange={(e) => setLocationText(e.target.value.slice(0, 120))} placeholder="Versova, Mumbai" className="form-input pl-10" />
+                <MapPin size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#075CFF]" />
+                <input value={locationText} onChange={(e) => setLocationText(e.target.value.slice(0, 120))} placeholder="Versova, Mumbai" className="form-input form-input-with-icon pr-4" />
               </div>
+              <p className="form-helper">Use the area name locals actually say in real life.</p>
             </Field>
             </div>
           </div>

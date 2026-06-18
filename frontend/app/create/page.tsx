@@ -30,6 +30,7 @@ export default function CreatePage() {
   const [groups, setGroups] = useState<Group[]>([])
   const [groupsLoading, setGroupsLoading] = useState(true)
   const [selectedGroupId, setSelectedGroupId] = useState('')
+  const [groupPickerOpen, setGroupPickerOpen] = useState(false)
   const [postCategory, setPostCategory] = useState<'Help' | 'Buy & Sell' | 'Announcement'>('Help')
   const [selectedHashtags, setSelectedHashtags] = useState<string[]>(['neighbourhood'])
   const [postText, setPostText] = useState('')
@@ -76,6 +77,7 @@ export default function CreatePage() {
   ]
   const postingGroups = groups.filter(group => group.role === 'admin' || group.role === 'moderator')
   const selectedShareGroup = postingGroups.find(group => group.id === selectedGroupId) ?? null
+  const groupRoleLabel = (group: Group) => group.role === 'admin' ? 'Admin' : 'Moderator'
 
   useEffect(() => {
     const requestedMode = new URLSearchParams(window.location.search).get('mode')
@@ -328,21 +330,63 @@ export default function CreatePage() {
                   <div>
                   <p className="form-label mb-2">Share in</p>
                   <div className="relative">
-                    <Users size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#075CFF]" />
-                    <select
-                      value={selectedGroupId}
-                      onChange={e => setSelectedGroupId(e.target.value)}
+                    <button
+                      type="button"
+                      onClick={() => postingGroups.length > 0 && setGroupPickerOpen(prev => !prev)}
                       disabled={groupsLoading || postingGroups.length === 0}
-                      className="form-select appearance-none pl-12 pr-10 text-left text-[13px] font-black text-[#172143]"
+                      className="flex min-h-[58px] w-full items-center gap-3 rounded-[14px] border border-[#D8E2F2] bg-white px-4 py-3 text-left shadow-[0_14px_30px_rgba(30,56,104,0.05)] transition-all focus:border-[#075CFF] focus:outline-none focus:ring-4 focus:ring-[#075CFF]/10 disabled:cursor-not-allowed disabled:bg-[#F8FAFF]"
                     >
-                      {postingGroups.length === 0 && <option value="">No admin/moderator groups available</option>}
-                      {postingGroups.map(group => (
-                        <option key={group.id} value={group.id}>
-                          {group.name} ({group.role === 'admin' ? 'main admin/admin' : 'moderator'})
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={16} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#697391]" />
+                      <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-[12px] bg-[#EAF2FF] text-[#075CFF]">
+                        <Users size={18} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        {groupsLoading ? (
+                          <span className="block text-[13px] font-black text-[#697391]">Loading groups...</span>
+                        ) : selectedShareGroup ? (
+                          <>
+                            <span className="block truncate text-[14px] font-black text-[#081234]">{selectedShareGroup.name}</span>
+                            <span className="mt-1 inline-flex rounded-full bg-[#EAF2FF] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#075CFF]">
+                              {groupRoleLabel(selectedShareGroup)}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="block text-[13px] font-black text-[#081234]">No admin/moderator groups available</span>
+                            <span className="mt-1 block text-[11px] font-semibold text-[#697391]">Create or manage a group first.</span>
+                          </>
+                        )}
+                      </span>
+                      {postingGroups.length > 0 && (
+                        <ChevronDown size={17} className={`flex-shrink-0 text-[#697391] transition-transform ${groupPickerOpen ? 'rotate-180' : ''}`} />
+                      )}
+                    </button>
+                    {groupPickerOpen && postingGroups.length > 0 && (
+                      <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 max-h-64 overflow-y-auto rounded-[16px] border border-[#D8E2F2] bg-white p-2 shadow-[0_22px_54px_rgba(8,18,52,0.16)]">
+                        {postingGroups.map(group => {
+                          const active = selectedGroupId === group.id
+                          return (
+                            <button
+                              key={group.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedGroupId(group.id)
+                                setGroupPickerOpen(false)
+                              }}
+                              className={`flex w-full items-center gap-3 rounded-[12px] px-3 py-3 text-left transition-all ${active ? 'bg-[#EEF4FF]' : 'hover:bg-[#F7FAFF]'}`}
+                            >
+                              <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-[11px] bg-[#EAF2FF] text-[#075CFF]">
+                                <Users size={16} />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-[13px] font-black text-[#081234]">{group.name}</span>
+                                <span className="mt-1 block text-[11px] font-semibold text-[#697391]">{groupRoleLabel(group)} • {group.pincode}</span>
+                              </span>
+                              {active && <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-[#075CFF]" />}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                   {postingGroups.length === 0 && (
                     <p className="form-helper">
@@ -351,15 +395,15 @@ export default function CreatePage() {
                   )}
                   </div>
 
-                  <div className="form-section flex min-h-[92px] items-center justify-between px-4 text-left">
+                  <div className="form-section flex min-h-[92px] items-center px-4 text-left">
                     <span className="flex min-w-0 items-center gap-3">
                       <span className="grid h-11 w-11 place-items-center rounded-full bg-[#EAF2FF] text-[#075CFF]"><UserRound size={19} /></span>
                       <span className="min-w-0">
+                        <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.1em] text-[#697391]">Posting as</span>
                         <span className="block truncate text-[14px] font-black text-[#081234]">{user?.username ?? 'Resident'}</span>
                         <span className="mt-1 block text-[12px] font-semibold text-[#697391]">{activePincode || user?.primary_pincode || '000000'} area</span>
                       </span>
                     </span>
-                    <ChevronDown size={16} className="text-[#697391]" />
                   </div>
                 </div>
               </div>

@@ -68,6 +68,24 @@ async function getGroupForUser(groupId: string, userId: string) {
   );
 }
 
+async function getScopedGroupForUser(groupId: string, userId: string, activePincode: string) {
+  return queryOne<Group>(
+    `
+    SELECT
+      g.*,
+      gm.status AS membership_status,
+      gm.role,
+      (gm.user_id IS NOT NULL AND gm.status = 'active') AS is_member
+    FROM groups g
+    LEFT JOIN group_memberships gm ON gm.group_id = g.id AND gm.user_id = $2
+    WHERE g.id = $1
+      AND COALESCE(g.status, 'active') = 'active'
+      AND g.pincode = $3
+    `,
+    [groupId, userId, activePincode]
+  );
+}
+
 async function getAdminVote(voteId: string, userId: string) {
   return queryOne<AdminVote>(
     `
@@ -196,9 +214,10 @@ export async function groupRoutes(app: FastifyInstance) {
           AND (c.last_read_msg_id IS NULL OR m.created_at > COALESCE(last_read.created_at, 'epoch'))
       ) unread ON true
       WHERE gm.user_id = $1 AND gm.status = 'active'
+        AND g.pincode = $2
       ORDER BY gm.joined_at DESC
       `,
-      [request.user.id]
+      [request.user.id, request.user.active_pincode]
     );
     return reply.send({ groups });
   });
@@ -252,7 +271,7 @@ export async function groupRoutes(app: FastifyInstance) {
 
   app.get('/:id', async (request, reply) => {
     const params = request.params as { id: string };
-    const group = await getGroupForUser(params.id, request.user.id);
+    const group = await getScopedGroupForUser(params.id, request.user.id, request.user.active_pincode);
     if (!group) return notFound(reply, 'Group not found');
     if (group.type === 'secret' && !group.is_member) return notFound(reply, 'Group not found');
     return reply.send({ group });
@@ -266,8 +285,17 @@ export async function groupRoutes(app: FastifyInstance) {
     }
 
     const membership = await queryOne<{ role: string }>(
-      `SELECT role FROM group_memberships WHERE group_id = $1 AND user_id = $2 AND status = 'active'`,
-      [params.id, request.user.id]
+      `
+      SELECT gm.role
+      FROM group_memberships gm
+      JOIN groups g ON g.id = gm.group_id
+      WHERE gm.group_id = $1
+        AND gm.user_id = $2
+        AND gm.status = 'active'
+        AND COALESCE(g.status, 'active') = 'active'
+        AND g.pincode = $3
+      `,
+      [params.id, request.user.id, request.user.active_pincode]
     );
     if (!membership || !['admin', 'moderator'].includes(membership.role)) return forbidden(reply);
 
@@ -284,7 +312,7 @@ export async function groupRoutes(app: FastifyInstance) {
     }
 
     if (sets.length === 0) {
-      const group = await getGroupForUser(params.id, request.user.id);
+      const group = await getScopedGroupForUser(params.id, request.user.id, request.user.active_pincode);
       return reply.send({ group });
     }
 
@@ -300,6 +328,9 @@ export async function groupRoutes(app: FastifyInstance) {
     const params = request.params as { id: string };
     const group = await queryOne<Group>("SELECT * FROM groups WHERE id = $1 AND COALESCE(status, 'active') = 'active'", [params.id]);
     if (!group || group.type === 'secret') return notFound(reply, 'Group not found');
+    if (group.pincode !== request.user.active_pincode) {
+      return forbidden(reply, 'You can join only groups from your currently selected pincode');
+    }
 
     const status = group.type === 'private' ? 'pending' : 'active';
     await withTransaction(async (client) => {
@@ -347,8 +378,15 @@ export async function groupRoutes(app: FastifyInstance) {
   app.post('/:id/leave', async (request, reply) => {
     const params = request.params as { id: string };
     const membership = await queryOne<{ role: string; status: string }>(
-      `SELECT role, status FROM group_memberships WHERE group_id = $1 AND user_id = $2`,
-      [params.id, request.user.id]
+      `
+      SELECT gm.role, gm.status
+      FROM group_memberships gm
+      JOIN groups g ON g.id = gm.group_id
+      WHERE gm.group_id = $1
+        AND gm.user_id = $2
+        AND g.pincode = $3
+      `,
+      [params.id, request.user.id, request.user.active_pincode]
     );
     if (!membership) return notFound(reply, 'Membership not found');
     if (membership.role === 'admin') return forbidden(reply, 'Transfer admin role before leaving');
@@ -366,8 +404,16 @@ export async function groupRoutes(app: FastifyInstance) {
   app.get('/:id/admin-vote', async (request, reply) => {
     const params = request.params as { id: string };
     const viewer = await queryOne(
-      `SELECT 1 FROM group_memberships WHERE group_id = $1 AND user_id = $2 AND status = 'active'`,
-      [params.id, request.user.id]
+      `
+      SELECT 1
+      FROM group_memberships gm
+      JOIN groups g ON g.id = gm.group_id
+      WHERE gm.group_id = $1
+        AND gm.user_id = $2
+        AND gm.status = 'active'
+        AND g.pincode = $3
+      `,
+      [params.id, request.user.id, request.user.active_pincode]
     );
     if (!viewer) return forbidden(reply);
 
@@ -409,8 +455,16 @@ export async function groupRoutes(app: FastifyInstance) {
   app.get('/:id/admin-votes', async (request, reply) => {
     const params = request.params as { id: string };
     const viewer = await queryOne(
-      `SELECT 1 FROM group_memberships WHERE group_id = $1 AND user_id = $2 AND status = 'active'`,
-      [params.id, request.user.id]
+      `
+      SELECT 1
+      FROM group_memberships gm
+      JOIN groups g ON g.id = gm.group_id
+      WHERE gm.group_id = $1
+        AND gm.user_id = $2
+        AND gm.status = 'active'
+        AND g.pincode = $3
+      `,
+      [params.id, request.user.id, request.user.active_pincode]
     );
     if (!viewer) return forbidden(reply);
 
@@ -449,14 +503,22 @@ export async function groupRoutes(app: FastifyInstance) {
   app.post('/:id/admin-vote', async (request, reply) => {
     const params = request.params as { id: string };
     const group = await queryOne<{ id: string; admin_user_id: string }>(
-      `SELECT id, admin_user_id FROM groups WHERE id = $1 AND COALESCE(status, 'active') = 'active'`,
-      [params.id]
+      `SELECT id, admin_user_id FROM groups WHERE id = $1 AND COALESCE(status, 'active') = 'active' AND pincode = $2`,
+      [params.id, request.user.active_pincode]
     );
     if (!group) return notFound(reply, 'Group not found');
 
     const membership = await queryOne<{ role: string }>(
-      `SELECT role FROM group_memberships WHERE group_id = $1 AND user_id = $2 AND status = 'active'`,
-      [params.id, request.user.id]
+      `
+      SELECT gm.role
+      FROM group_memberships gm
+      JOIN groups g ON g.id = gm.group_id
+      WHERE gm.group_id = $1
+        AND gm.user_id = $2
+        AND gm.status = 'active'
+        AND g.pincode = $3
+      `,
+      [params.id, request.user.id, request.user.active_pincode]
     );
     if (!membership) return forbidden(reply);
     if (request.user.id === group.admin_user_id) {
@@ -515,8 +577,16 @@ export async function groupRoutes(app: FastifyInstance) {
     }
 
     const membership = await queryOne(
-      `SELECT 1 FROM group_memberships WHERE group_id = $1 AND user_id = $2 AND status = 'active'`,
-      [params.id, request.user.id]
+      `
+      SELECT 1
+      FROM group_memberships gm
+      JOIN groups g ON g.id = gm.group_id
+      WHERE gm.group_id = $1
+        AND gm.user_id = $2
+        AND gm.status = 'active'
+        AND g.pincode = $3
+      `,
+      [params.id, request.user.id, request.user.active_pincode]
     );
     if (!membership) return forbidden(reply);
 
@@ -548,8 +618,16 @@ export async function groupRoutes(app: FastifyInstance) {
   app.get('/:id/members', async (request, reply) => {
     const params = request.params as { id: string };
     const viewer = await queryOne(
-      `SELECT 1 FROM group_memberships WHERE group_id = $1 AND user_id = $2 AND status = 'active'`,
-      [params.id, request.user.id]
+      `
+      SELECT 1
+      FROM group_memberships gm
+      JOIN groups g ON g.id = gm.group_id
+      WHERE gm.group_id = $1
+        AND gm.user_id = $2
+        AND gm.status = 'active'
+        AND g.pincode = $3
+      `,
+      [params.id, request.user.id, request.user.active_pincode]
     );
     if (!viewer) return forbidden(reply);
 
@@ -563,10 +641,13 @@ export async function groupRoutes(app: FastifyInstance) {
       ) AS user
       FROM group_memberships gm
       JOIN users u ON u.id = gm.user_id
-      WHERE gm.group_id = $1 AND gm.status = 'active'
+      JOIN groups g ON g.id = gm.group_id
+      WHERE gm.group_id = $1
+        AND gm.status = 'active'
+        AND g.pincode = $2
       ORDER BY gm.joined_at ASC
       `,
-      [params.id]
+      [params.id, request.user.active_pincode]
     );
 
     return reply.send({ members });
@@ -580,16 +661,24 @@ export async function groupRoutes(app: FastifyInstance) {
     }
 
     const viewer = await queryOne<{ role: string }>(
-      `SELECT role FROM group_memberships WHERE group_id = $1 AND user_id = $2 AND status = 'active'`,
-      [params.id, request.user.id]
+      `
+      SELECT gm.role
+      FROM group_memberships gm
+      JOIN groups g ON g.id = gm.group_id
+      WHERE gm.group_id = $1
+        AND gm.user_id = $2
+        AND gm.status = 'active'
+        AND g.pincode = $3
+      `,
+      [params.id, request.user.id, request.user.active_pincode]
     );
     if (!viewer || viewer.role !== 'admin') {
       return forbidden(reply, 'Only admins can manage member positions');
     }
 
     const group = await queryOne<{ admin_user_id: string }>(
-      `SELECT admin_user_id FROM groups WHERE id = $1 AND COALESCE(status, 'active') = 'active'`,
-      [params.id]
+      `SELECT admin_user_id FROM groups WHERE id = $1 AND COALESCE(status, 'active') = 'active' AND pincode = $2`,
+      [params.id, request.user.active_pincode]
     );
     if (!group) return notFound(reply, 'Group not found');
     if (params.userId === group.admin_user_id && parsed.data.role !== 'admin') {
@@ -597,8 +686,16 @@ export async function groupRoutes(app: FastifyInstance) {
     }
 
     const target = await queryOne<{ role: string }>(
-      `SELECT role FROM group_memberships WHERE group_id = $1 AND user_id = $2 AND status = 'active'`,
-      [params.id, params.userId]
+      `
+      SELECT gm.role
+      FROM group_memberships gm
+      JOIN groups g ON g.id = gm.group_id
+      WHERE gm.group_id = $1
+        AND gm.user_id = $2
+        AND gm.status = 'active'
+        AND g.pincode = $3
+      `,
+      [params.id, params.userId, request.user.active_pincode]
     );
     if (!target) return notFound(reply, 'Member not found');
 
@@ -616,10 +713,12 @@ export async function groupRoutes(app: FastifyInstance) {
       `
       UPDATE group_memberships gm
       SET role = $3
-      FROM users u
+      FROM users u, groups g
       WHERE gm.group_id = $1
         AND gm.user_id = $2
         AND gm.status = 'active'
+        AND g.id = gm.group_id
+        AND g.pincode = $4
         AND u.id = gm.user_id
       RETURNING gm.*, json_build_object(
         'id', u.id,
@@ -628,7 +727,7 @@ export async function groupRoutes(app: FastifyInstance) {
         'phone', u.phone
       ) AS user
       `,
-      [params.id, params.userId, parsed.data.role]
+      [params.id, params.userId, parsed.data.role, request.user.active_pincode]
     );
 
     return reply.send({ member });
@@ -637,16 +736,24 @@ export async function groupRoutes(app: FastifyInstance) {
   app.delete('/:id/members/:userId', async (request, reply) => {
     const params = request.params as { id: string; userId: string };
     const viewer = await queryOne<{ role: string }>(
-      `SELECT role FROM group_memberships WHERE group_id = $1 AND user_id = $2 AND status = 'active'`,
-      [params.id, request.user.id]
+      `
+      SELECT gm.role
+      FROM group_memberships gm
+      JOIN groups g ON g.id = gm.group_id
+      WHERE gm.group_id = $1
+        AND gm.user_id = $2
+        AND gm.status = 'active'
+        AND g.pincode = $3
+      `,
+      [params.id, request.user.id, request.user.active_pincode]
     );
     if (!viewer || viewer.role !== 'admin') {
       return forbidden(reply, 'Only admins can remove group members');
     }
 
     const group = await queryOne<{ admin_user_id: string }>(
-      `SELECT admin_user_id FROM groups WHERE id = $1 AND COALESCE(status, 'active') = 'active'`,
-      [params.id]
+      `SELECT admin_user_id FROM groups WHERE id = $1 AND COALESCE(status, 'active') = 'active' AND pincode = $2`,
+      [params.id, request.user.active_pincode]
     );
     if (!group) return notFound(reply, 'Group not found');
     if (params.userId === group.admin_user_id) {
@@ -657,8 +764,16 @@ export async function groupRoutes(app: FastifyInstance) {
     }
 
     const target = await queryOne<{ role: string; status: string }>(
-      `SELECT role, status FROM group_memberships WHERE group_id = $1 AND user_id = $2 AND status = 'active'`,
-      [params.id, params.userId]
+      `
+      SELECT gm.role, gm.status
+      FROM group_memberships gm
+      JOIN groups g ON g.id = gm.group_id
+      WHERE gm.group_id = $1
+        AND gm.user_id = $2
+        AND gm.status = 'active'
+        AND g.pincode = $3
+      `,
+      [params.id, params.userId, request.user.active_pincode]
     );
     if (!target) return notFound(reply, 'Member not found');
 
