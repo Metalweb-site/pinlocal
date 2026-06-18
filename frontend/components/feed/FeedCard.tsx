@@ -14,6 +14,7 @@ import {
   Loader2,
   MapPin,
   MessageCircle,
+  MoreVertical,
   Send,
   Share2,
   Trash2,
@@ -326,7 +327,7 @@ export default function FeedCard({ post }: FeedCardProps) {
     <>
       <article
         className={cn(
-          'relative ml-6 overflow-visible rounded-[12px] border border-[#DDE5F3] bg-white shadow-[0_18px_44px_rgba(30,56,104,0.07)] transition-all md:ml-0 md:pl-0',
+          'relative overflow-visible rounded-[12px] border border-[#DDE5F3] bg-white shadow-[0_12px_28px_rgba(30,56,104,0.07)] transition-all md:ml-0 md:pl-0 xl:ml-6 xl:shadow-[0_18px_44px_rgba(30,56,104,0.07)]',
           isPersonalPost ? 'select-none' : 'cursor-grab select-none active:cursor-grabbing',
           joining && 'opacity-70'
         )}
@@ -351,14 +352,18 @@ export default function FeedCard({ post }: FeedCardProps) {
           </div>
         )}
 
-        <div className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_280px_106px] lg:items-center">
+        <button className="absolute right-3 top-4 z-10 grid h-8 w-8 place-items-center rounded-full text-[#44506E] xl:hidden" aria-label="Post options">
+          <MoreVertical size={20} />
+        </button>
+
+        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_280px_106px] lg:items-center xl:gap-5 xl:p-5">
           <div className="min-w-0">
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-3 xl:gap-4">
               <div className="relative flex-shrink-0">
                 <Avatar
                   name={isPersonalPost ? post.author?.username ?? 'Resident' : post.group?.name}
                   src={isPersonalPost ? post.author?.avatar_url : post.group?.cover_image_url}
-                  size={56}
+                  size={52}
                   className="!rounded-full"
                 />
                 <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#16B84E]" />
@@ -370,14 +375,14 @@ export default function FeedCard({ post }: FeedCardProps) {
                     {isPersonalPost ? 'Personal Post' : post.group?.type === 'private' ? 'Private Group' : cat === 'Events' ? 'Event' : 'Open Group'}
                   </span>
                 </div>
-                <p className="mt-2 text-[12px] font-semibold text-[#697391]">
+                <p className="mt-1 text-[12px] font-semibold text-[#697391] xl:mt-2">
                   {post.pincode} area <span className="mx-2">•</span> {timeAgo(post.created_at)}
                 </p>
-                <h3 className="mt-4 text-[16px] font-black leading-snug text-[#081234]">
+                <h3 className="mt-3 pr-8 text-[15px] font-black leading-snug text-[#081234] xl:mt-4 xl:pr-0 xl:text-[16px]">
                   {headlineFromPost(post.content_text, cat)}
                 </h3>
                 {post.content_text && (
-                  <p className="mt-2 line-clamp-2 text-[14px] font-semibold leading-relaxed text-[#172143]">
+                  <p className="mt-2 line-clamp-3 text-[14px] font-semibold leading-relaxed text-[#172143] xl:line-clamp-2">
                     {post.content_text}
                   </p>
                 )}
@@ -399,12 +404,12 @@ export default function FeedCard({ post }: FeedCardProps) {
             </div>
           </div>
 
-          <div className="relative h-[160px] overflow-hidden rounded-[8px] bg-[#F1F5FF] lg:h-[158px]">
+          <div className="relative h-auto min-h-[0] overflow-hidden rounded-[8px] bg-[#F1F5FF] lg:h-[158px]">
             {media ? (
               isVideoUrl(media) ? (
-                <video src={media} className="h-full w-full object-cover" controls autoPlay loop muted preload="metadata" playsInline />
+                <video src={media} className="max-h-[360px] w-full object-cover lg:h-full" controls autoPlay loop muted preload="metadata" playsInline />
               ) : (
-                <img src={media} alt="" className="h-full w-full object-cover" loading="lazy" />
+                <img src={media} alt="" className="max-h-[360px] w-full object-cover lg:h-full" loading="lazy" />
               )
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top_left,#DDE8FF,transparent_35%),linear-gradient(135deg,#F7FAFF,#EAF0FC)]">
@@ -425,7 +430,7 @@ export default function FeedCard({ post }: FeedCardProps) {
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-[#E4E9F4] pt-4 lg:block lg:border-t-0 lg:pt-0">
+          <div className="flex items-center justify-between gap-3 border-t border-[#E4E9F4] pt-3 lg:block lg:border-t-0 lg:pt-0">
             <div className="grid grid-cols-3 gap-2 lg:block lg:space-y-4">
               <StatButton onClick={handleLike} active={liked} icon={<Heart size={17} fill={liked ? '#F04438' : 'none'} />}>{formatCount(likeCount)}</StatButton>
               <StatButton onClick={openComments} icon={<MessageCircle size={17} />}>{formatCount(commentCount)}</StatButton>
@@ -433,7 +438,7 @@ export default function FeedCard({ post }: FeedCardProps) {
             </div>
 
             <div className="flex items-center gap-4 lg:mt-6 lg:block">
-              {!isPersonalPost && <p className="hidden text-[12px] font-semibold text-[#697391] lg:block">{formatCount(post.swipe_count ?? 0)} swipes</p>}
+              {!isPersonalPost && <p className="text-[12px] font-semibold text-[#697391]">{formatCount(post.swipe_count ?? 0)} swipes</p>}
               {!isPersonalPost && (post.latest_swipers?.length ?? 0) > 0 && (
                 <div className="mt-0 flex -space-x-2 lg:mt-4">
                   {post.latest_swipers?.slice(0, 3).map(swiper => (

@@ -30,6 +30,9 @@ export const config = {
     url: required('DATABASE_URL'),
     poolMax: parseInt(optional('DB_POOL_MAX', '10'), 10),
   },
+  network: {
+    dnsResultOrder: optional('DNS_RESULT_ORDER', 'ipv4first'),
+  },
   redis: {
     url: required('REDIS_URL'),
   },

@@ -208,7 +208,7 @@ export async function groupRoutes(app: FastifyInstance) {
     if (!parsed.success) {
       return badRequest(reply, 'validation_error', parsed.error.issues[0]?.message ?? 'Invalid input');
     }
-    if (!request.user.primary_pincode || request.user.primary_pincode === '000000') {
+    if (!request.user.active_pincode || request.user.active_pincode === '000000') {
       return badRequest(reply, 'pincode_required', 'Set your pincode before creating a group');
     }
 
@@ -224,7 +224,7 @@ export async function groupRoutes(app: FastifyInstance) {
             parsed.data.name,
             parsed.data.description ?? null,
             parsed.data.cover_image_url ?? null,
-            request.user.primary_pincode,
+            request.user.active_pincode,
             parsed.data.category,
             parsed.data.type,
             request.user.id,

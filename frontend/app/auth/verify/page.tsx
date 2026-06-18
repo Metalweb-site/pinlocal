@@ -1,20 +1,20 @@
 'use client'
+
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, ShieldCheck, RefreshCw, Lock } from 'lucide-react'
+import { ArrowLeft, Lock, RefreshCw, ShieldCheck } from 'lucide-react'
 import { verifyOtp, verifyPasscode, sendOtp } from '@/lib/api'
 import { useAuthStore } from '@/store/auth.store'
 import Button from '@/components/ui/Button'
 import toast from 'react-hot-toast'
 
 export default function VerifyPage() {
-  const [code,    setCode]    = useState(['','','','','',''])
+  const [code, setCode] = useState(['', '', '', '', '', ''])
   const [passcode, setPasscode] = useState('')
   const [passcodeToken, setPasscodeToken] = useState('')
   const [loading, setLoading] = useState(false)
-  const [timer,   setTimer]   = useState(42)
-  const { phone, setUser }    = useAuthStore()
+  const [timer, setTimer] = useState(42)
+  const { phone, setUser } = useAuthStore()
   const router = useRouter()
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
@@ -58,7 +58,7 @@ export default function VerifyPage() {
       else router.push('/feed')
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? 'Invalid OTP')
-      setCode(['','','','','',''])
+      setCode(['', '', '', '', '', ''])
       inputRefs.current[0]?.focus()
     } finally {
       setLoading(false)
@@ -87,166 +87,116 @@ export default function VerifyPage() {
     try {
       await sendOtp(phone)
       setTimer(60)
-      toast.success('New code sent!')
+      toast.success('New code sent')
     } catch {
       toast.error('Failed to resend')
     }
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-bg relative overflow-hidden">
-      {/* Dynamic Background Elements */}
-      <div className="absolute inset-0 grid-bg opacity-10 pointer-events-none" />
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 1.5, ease: "easeOut" }}
-        className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-coral/5 blur-[150px] rounded-full pointer-events-none" 
-      />
-      
-      <div className="flex flex-col flex-1 px-8 pt-12 pb-10 max-w-sm mx-auto w-full relative z-10">
-        <motion.button 
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          onClick={() => router.back()} 
-          className="flex items-center gap-2 text-text3 text-[14px] mb-12 hover:text-text1 transition-all active:scale-95 w-fit font-bold uppercase tracking-widest"
-        >
-          <ArrowLeft size={18} strokeWidth={3} /> Back
-        </motion.button>
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#F7FAFF]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(7,92,255,0.10),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(7,92,255,0.08),transparent_30%)]" />
+      <div className="pointer-events-none absolute inset-0 grid-bg opacity-40" />
 
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-5 pb-10 pt-10 sm:px-6">
+        <button
+          onClick={() => router.back()}
+          className="mb-8 flex w-fit items-center gap-2 rounded-full border border-[#DDE5F3] bg-white px-4 py-2 text-[13px] font-black text-[#44506E] shadow-[0_10px_24px_rgba(30,56,104,0.04)]"
         >
-          <h1 className="font-display font-black text-[58px] leading-[0.85] uppercase tracking-tighter mb-4">
-            CHECK<br />
-            <span className="text-coral">YOUR PHONE.</span>
+          <ArrowLeft size={16} />
+          Back
+        </button>
+
+        <div className="animate-fade-up">
+          <h1 className="font-body text-[42px] font-black leading-[0.92] tracking-[-0.06em] text-[#081234] sm:text-[48px]">
+            Check your phone.
           </h1>
-          <div className="flex items-center gap-3 bg-surface2/40 border border-white/[0.05] rounded-2xl px-4 py-3 mb-12 w-fit backdrop-blur-md">
-            <div className="w-8 h-8 rounded-xl bg-mint/10 flex items-center justify-center text-mint">
-              <ShieldCheck size={18} strokeWidth={2.5} />
+          <div className="mt-5 inline-flex max-w-full items-center gap-3 rounded-[16px] border border-[#DDE5F3] bg-white px-4 py-3 shadow-[0_14px_30px_rgba(30,56,104,0.04)]">
+            <div className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-[12px] bg-[#EEF4FF] text-[#075CFF]">
+              {passcodeToken ? <Lock size={18} /> : <ShieldCheck size={18} />}
             </div>
-            <p className="text-text2 text-[14px] font-medium">
-              {passcodeToken ? 'Passcode required for' : 'Code sent to'} <span className="text-text1 font-bold tracking-wider">{phone}</span>
+            <p className="min-w-0 text-[13px] font-semibold leading-relaxed text-[#44506E]">
+              {passcodeToken ? 'Passcode required for ' : 'Code sent to '}
+              <span className="font-black tracking-[0.04em] text-[#081234]">{phone}</span>
             </p>
           </div>
-        </motion.div>
+        </div>
 
-        {/* OTP Input Container */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="relative group"
-        >
+        <div className="mt-8 form-card p-5 sm:p-6">
           {!passcodeToken ? (
-            <div className="flex gap-2.5 mb-8">
-              {code.map((digit, i) => (
-              <motion.div
-                key={i}
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.1 + i * 0.05 }}
-                className="flex-1"
-              >
-                <input
-                  ref={el => { inputRefs.current[i] = el }}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={digit}
-                  onChange={e => handleChange(i, e.target.value)}
-                  onKeyDown={e => handleKey(i, e)}
-                  className={`w-full h-[72px] bg-surface2/30 backdrop-blur-xl rounded-[16px] text-center font-display text-[36px] font-black outline-none transition-all duration-500 border-2 ${
-                    digit 
-                      ? 'border-coral shadow-[0_0_25px_rgba(255,77,0,0.15)] text-coral bg-coral/5' 
-                      : 'border-white/[0.05] text-text3 focus:border-white/20'
-                  }`}
-                />
-              </motion.div>
-              ))}
-            </div>
+            <>
+              <label className="block">
+                <span className="form-label">One-time password</span>
+                <div className="grid grid-cols-6 gap-2.5">
+                  {code.map((digit, i) => (
+                    <input
+                      key={i}
+                      ref={el => { inputRefs.current[i] = el }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={e => handleChange(i, e.target.value)}
+                      onKeyDown={e => handleKey(i, e)}
+                      className={`h-[62px] rounded-[16px] border text-center font-body text-[28px] font-black outline-none transition-all ${
+                        digit
+                          ? 'border-[#075CFF] bg-[#F4F8FF] text-[#075CFF] shadow-[0_14px_28px_rgba(7,92,255,0.10)]'
+                          : 'border-[#D8E2F2] bg-white text-[#081234] shadow-[0_10px_24px_rgba(30,56,104,0.04)] focus:border-[#075CFF] focus:shadow-[0_0_0_4px_rgba(7,92,255,0.10)]'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </label>
+              <p className="mt-4 text-center text-[12px] font-semibold text-[#697391]">Enter the 6-digit OTP we sent to your phone.</p>
+            </>
           ) : (
-            <div className="mb-8">
-              <input
-                type="password"
-                inputMode="numeric"
-                maxLength={8}
-                value={passcode}
-                onChange={e => setPasscode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') submitPasscode()
-                }}
-                autoFocus
-                placeholder="Enter passcode"
-                className="h-[72px] w-full rounded-[16px] border-2 border-white/[0.08] bg-surface2/30 px-5 text-center font-display text-[32px] font-black tracking-[0.24em] text-coral outline-none backdrop-blur-xl transition-all focus:border-coral"
-              />
-              <p className="mt-3 text-center text-[11px] font-bold uppercase tracking-[1.5px] text-text3">4 to 8 digit profile passcode</p>
-            </div>
+            <>
+              <label className="block">
+                <span className="form-label">Passcode</span>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={8}
+                  value={passcode}
+                  onChange={e => setPasscode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') submitPasscode()
+                  }}
+                  autoFocus
+                  placeholder="Enter 4 to 8 digits"
+                  className="form-input h-[62px] text-center font-body text-[24px] tracking-[0.22em]"
+                />
+              </label>
+              <div className="mt-4 rounded-[14px] border border-[#FFE0B8] bg-[#FFF9F0] p-3 text-[12px] font-bold leading-relaxed text-[#8A4B10]">
+                This passcode is your second lock after OTP verification.
+              </div>
+            </>
           )}
 
-          <AnimatePresence>
-            {loading && (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-bg/60 backdrop-blur-sm rounded-[20px] flex items-center justify-center z-20 border border-white/5"
-              >
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-10 h-10 border-4 border-coral/20 border-t-coral rounded-full animate-spin" />
-                  <span className="text-coral font-mono text-[10px] font-black uppercase tracking-[3px]">Verifying</span>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
+          <div className="mt-6">
+            <Button
+              onClick={() => passcodeToken ? submitPasscode() : submitCode(code.join(''))}
+              loading={loading}
+              disabled={passcodeToken ? passcode.length < 4 : code.some(c => !c)}
+              className="h-[56px] text-[15px]"
+            >
+              {passcodeToken ? 'Unlock Account' : 'Verify and Continue'}
+            </Button>
+          </div>
 
-        {/* Resend Logic */}
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          className="text-center mb-12"
-        >
-          {!passcodeToken && <button 
-            onClick={handleResend}
-            disabled={timer > 0}
-            className={`group flex items-center justify-center gap-2 mx-auto px-6 py-2 rounded-full transition-all ${
-              timer > 0 
-                ? 'text-text3 cursor-not-allowed' 
-                : 'text-text2 hover:text-coral hover:bg-coral/5'
-            }`}
-          >
-            <RefreshCw size={14} className={timer > 0 ? '' : 'group-hover:rotate-180 transition-transform duration-500'} />
-            <span className="text-[12px] font-bold uppercase tracking-[1.5px]">
-              {timer > 0 ? `Resend in ${timer}s` : 'Resend Code Now'}
-            </span>
-          </button>}
-        </motion.div>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="mt-auto"
-        >
-          <Button 
-            onClick={() => passcodeToken ? submitPasscode() : submitCode(code.join(''))} 
-            loading={loading}
-            disabled={passcodeToken ? passcode.length < 4 : code.some(c => !c)}
-            className="h-[64px] text-[20px] rounded-[20px] shadow-[0_12px_40px_rgba(255,77,0,0.3)] relative overflow-hidden group"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-            <span className="flex items-center gap-2">
-              {passcodeToken ? 'Unlock Account' : 'Verify & Enter'} <Lock size={18} />
-            </span>
-          </Button>
-          <p className="text-center text-[11px] text-text3 mt-6 font-mono uppercase tracking-widest opacity-50">
-            Secure 256-bit Encrypted Connection
-          </p>
-        </motion.div>
+          {!passcodeToken && (
+            <button
+              onClick={handleResend}
+              disabled={timer > 0}
+              className={`mt-4 flex w-full items-center justify-center gap-2 rounded-[12px] px-4 py-3 text-[12px] font-black transition-all ${
+                timer > 0 ? 'text-[#94A3B8]' : 'text-[#075CFF] hover:bg-[#F4F8FF]'
+              }`}
+            >
+              <RefreshCw size={14} className={timer > 0 ? '' : 'transition-transform duration-300 group-hover:rotate-180'} />
+              {timer > 0 ? `Resend in ${timer}s` : 'Resend code'}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )

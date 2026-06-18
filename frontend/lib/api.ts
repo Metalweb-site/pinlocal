@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { useAuthStore } from '@/store/auth.store'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1'
 let pendingRequests = 0
@@ -27,6 +28,12 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     beginRequest()
+    const { activePincode, user } = useAuthStore.getState()
+    const effectivePincode = activePincode || user?.primary_pincode
+    if (effectivePincode) {
+      config.headers = config.headers ?? {}
+      config.headers['x-active-pincode'] = effectivePincode
+    }
     return config
   },
   (err) => {

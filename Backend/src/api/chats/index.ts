@@ -136,15 +136,19 @@ export async function chatRoutes(app: FastifyInstance) {
         AND (
           username ILIKE $2
           OR phone ILIKE $2
-          OR primary_pincode = $3
+          OR ($3::text IS NOT NULL AND primary_pincode = $3)
+          OR ($3::text IS NOT NULL AND COALESCE(secondary_pincode, '') = $3)
         )
       ORDER BY
-        CASE WHEN primary_pincode = $3 THEN 0 ELSE 1 END,
+        CASE
+          WHEN $4 IN (primary_pincode, COALESCE(secondary_pincode, '')) THEN 0
+          ELSE 1
+        END,
         username NULLS LAST,
         phone
       LIMIT 12
       `,
-      [request.user.id, `%${search}%`, search]
+      [request.user.id, `%${search}%`, /^\d{6}$/.test(search) ? search : null, request.user.active_pincode]
     );
 
     return reply.send({ users });

@@ -19,7 +19,7 @@ export function isSuperAdminPhone(phone: string): boolean {
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 // Applied to all protected routes.
 // Reads JWT from httpOnly cookie OR Authorization: Bearer header.
-// Attaches { id, phone, primary_pincode } to request.user.
+// Attaches authenticated user + active pincode context to request.user.
 
 export async function authMiddleware(
   request: FastifyRequest,
@@ -49,8 +49,8 @@ export async function authMiddleware(
       });
     }
 
-    const user = await queryOne<{ id: string; phone: string; primary_pincode: string }>(
-      'SELECT id, phone, primary_pincode FROM users WHERE id = $1',
+    const user = await queryOne<{ id: string; phone: string; primary_pincode: string; secondary_pincode: string | null }>(
+      'SELECT id, phone, primary_pincode, secondary_pincode FROM users WHERE id = $1',
       [payload.id]
     );
 
@@ -61,8 +61,14 @@ export async function authMiddleware(
         statusCode: 401,
       });
     }
+    const headerValue = request.headers['x-active-pincode'];
+    const requestedPincode = typeof headerValue === 'string' ? headerValue.trim() : Array.isArray(headerValue) ? headerValue[0]?.trim() : undefined;
+    const allowedPincodes = [user.primary_pincode, user.secondary_pincode].filter(Boolean) as string[];
+    const active_pincode = requestedPincode && allowedPincodes.includes(requestedPincode)
+      ? requestedPincode
+      : user.primary_pincode;
 
-    request.user = user;
+    request.user = { ...user, active_pincode };
 
     // Debounced last_seen — fire and forget
     maybeUpdateLastSeen(payload.id).catch(() => {});

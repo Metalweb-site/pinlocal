@@ -27,6 +27,8 @@ import { useSocket } from '@/hooks/useSocket'
 import FeedCard from '@/components/feed/FeedCard'
 import Avatar from '@/components/shared/Avatar'
 import NotificationBell from '@/components/shared/NotificationBell'
+import PincodeSwitcher from '@/components/shared/PincodeSwitcher'
+import { useAuthStore } from '@/store/auth.store'
 import { CATEGORIES, Post } from '@/types'
 
 const CATS = [
@@ -42,6 +44,7 @@ const CATS = [
 
 export default function FeedPage() {
   const { user, loading: authLoading } = useAuth()
+  const { activePincode } = useAuthStore()
   useSocket()
   const router = useRouter()
   const {
@@ -77,7 +80,7 @@ export default function FeedPage() {
       return
     }
     loadFeed(1, category, true)
-  }, [category, user, authLoading, loadFeed, router])
+  }, [activePincode, category, user, authLoading, loadFeed, router])
 
   useEffect(() => {
     const obs = new IntersectionObserver(entries => {
@@ -95,7 +98,7 @@ export default function FeedPage() {
   }
 
   const userName = user?.username ?? 'Sujal'
-  const pincode = user?.primary_pincode ?? '400001'
+  const pincode = activePincode || user?.primary_pincode || '400001'
   const nearbyLabel = useMemo(() => CATEGORIES.map(c => c.label).join(', '), [])
 
   const trendingPosts = useMemo(() => {
@@ -136,14 +139,11 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-screen bg-[#FBFCFF] font-body text-[#081234]">
+      <MobileTopBar userName={userName} avatarUrl={user?.avatar_url} />
       <div className="hidden xl:block">
         <header className="sticky top-0 z-30 border-b border-[#E4E9F4] bg-white/90 backdrop-blur-xl">
           <div className="mx-auto flex h-[80px] max-w-[1220px] items-center gap-8 px-9">
-            <button className="flex h-10 items-center gap-3 rounded-[8px] border border-[#D7DFF0] bg-white px-3.5 text-[15px] font-black text-[#081234] shadow-[0_10px_30px_rgba(40,70,120,0.06)]">
-              <MapPin size={20} className="text-[#075CFF]" strokeWidth={2.4} />
-              {pincode}
-              <ChevronDown size={16} className="text-[#697391]" />
-            </button>
+            <PincodeSwitcher variant="desktop-header" />
 
             <div className="mx-auto flex h-10 w-[510px] items-center rounded-[8px] border border-[#D7DFF0] bg-white px-4 shadow-[0_10px_30px_rgba(40,70,120,0.06)]">
               <Search size={20} className="mr-3 text-[#697391]" />
@@ -164,9 +164,9 @@ export default function FeedPage() {
         </header>
       </div>
 
-      <div className="mx-auto grid max-w-[1220px] grid-cols-1 gap-8 px-4 pt-7 xl:grid-cols-[minmax(0,1fr)_280px] xl:px-9">
+      <div className="mx-auto grid max-w-[1220px] grid-cols-1 gap-8 px-6 pt-4 xl:grid-cols-[minmax(0,1fr)_280px] xl:px-9 xl:pt-7">
         <main className="min-w-0">
-          <section className="mb-5 flex items-end justify-between gap-4">
+          <section className="mb-5 hidden items-end justify-between gap-4 xl:flex">
             <div>
               <p className="text-[16px] font-semibold text-[#697391]">Good evening, {userName}!</p>
               <h1 className="mt-2 text-[38px] font-black leading-[1.05] tracking-[-0.045em] text-[#081234]">
@@ -190,7 +190,7 @@ export default function FeedPage() {
             </div>
           </section>
 
-          <section className="mb-9 overflow-x-auto rounded-[14px] border border-[#DDE5F3] bg-white p-1.5 shadow-[0_14px_36px_rgba(30,56,104,0.08)] scrollbar-none">
+          <section className="mb-6 overflow-x-auto rounded-none border-0 bg-transparent p-0 shadow-none scrollbar-none xl:mb-9 xl:rounded-[14px] xl:border xl:border-[#DDE5F3] xl:bg-white xl:p-1.5 xl:shadow-[0_14px_36px_rgba(30,56,104,0.08)]">
             <div className="flex min-w-max items-center gap-1.5">
               {CATS.map(item => {
                 const Icon = item.icon
@@ -199,10 +199,10 @@ export default function FeedPage() {
                   <button
                     key={item.label}
                     onClick={() => handleCatChange(item.value)}
-                    className={`flex h-11 items-center gap-2 rounded-[9px] px-5 text-[13px] font-black transition-all ${
+                    className={`flex h-11 items-center gap-2 rounded-[8px] border px-4 text-[13px] font-black transition-all xl:border-0 xl:px-5 ${
                       active
                         ? 'bg-[#075CFF] text-white shadow-[0_8px_18px_rgba(7,92,255,0.26)]'
-                        : 'text-[#081234] hover:bg-[#F5F8FF] hover:text-[#075CFF]'
+                        : 'border-[#E4E9F4] bg-white text-[#081234] shadow-[0_8px_20px_rgba(8,18,52,0.04)] hover:bg-[#F5F8FF] hover:text-[#075CFF]'
                     }`}
                   >
                     <Icon size={19} strokeWidth={2.3} />
@@ -213,7 +213,7 @@ export default function FeedPage() {
             </div>
           </section>
 
-          <div className="mb-4 flex items-center justify-between px-1">
+          <div className="mb-4 hidden items-center justify-between px-1 xl:flex">
             <p className="text-[14px] font-semibold text-[#44506E]">
               Live feed from <span className="font-black text-[#075CFF]">{pincode}</span> and nearby areas
               <span className="ml-3 inline-flex items-center gap-1 rounded-full bg-[#E8F8E7] px-2 py-1 text-[11px] font-black text-[#20852F]">
@@ -241,7 +241,7 @@ export default function FeedPage() {
           ) : (
             <div className="relative pb-20">
               <div className="absolute left-0 top-4 hidden h-full w-px bg-[#C7D0E2] md:block" />
-              <div className="space-y-3">
+              <div className="space-y-5 xl:space-y-3">
                 {posts.map(post => <FeedCard key={post.id} post={post} />)}
               </div>
               <div ref={loaderRef} className="flex justify-center py-10">
@@ -347,5 +347,21 @@ function EmptyPanelText({ children }: { children: React.ReactNode }) {
     <div className="rounded-[10px] border border-dashed border-[#D7DFF0] bg-[#F8FAFF] px-4 py-6 text-center text-[13px] font-bold text-[#697391]">
       {children}
     </div>
+  )
+}
+
+function MobileTopBar({ userName, avatarUrl }: { userName: string; avatarUrl?: string | null }) {
+  return (
+    <header className="sticky top-0 z-30 bg-[#FBFCFF]/95 px-6 pb-4 pt-7 backdrop-blur-xl xl:hidden">
+      <div className="flex items-center justify-between">
+        <PincodeSwitcher variant="mobile-topbar" />
+        <div className="flex items-center gap-4">
+          <NotificationBell />
+          <Link href="/profile" aria-label="Open profile">
+            <Avatar name={userName} src={avatarUrl} size={40} className="!rounded-full" />
+          </Link>
+        </div>
+      </div>
+    </header>
   )
 }

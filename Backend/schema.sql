@@ -12,6 +12,16 @@ CREATE TABLE IF NOT EXISTS users (
   cover_image_url   TEXT,
   bio               TEXT,
   location_text     VARCHAR(120),
+  locality_name     VARCHAR(120),
+  locality_user_edited BOOLEAN DEFAULT FALSE,
+  locality_confirmed BOOLEAN DEFAULT FALSE,
+  city              VARCHAR(120),
+  district          VARCHAR(120),
+  state             VARCHAR(120),
+  latitude          DECIMAL(9,6),
+  longitude         DECIMAL(9,6),
+  location_source   VARCHAR(20),
+  location_accuracy_meters INT,
   website_url       TEXT,
   passcode_hash     TEXT,
   primary_pincode   VARCHAR(6) NOT NULL,
@@ -43,6 +53,39 @@ CREATE TABLE IF NOT EXISTS pincode_meta (
   neighbor_codes    TEXT[] DEFAULT '{}',
   active_users_30d  INT DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS reverse_geocode_cache (
+  cache_key              VARCHAR(32) PRIMARY KEY,
+  lat                    DECIMAL(9,6) NOT NULL,
+  lng                    DECIMAL(9,6) NOT NULL,
+  pincode                VARCHAR(6),
+  locality_name          VARCHAR(120),
+  city                   VARCHAR(120),
+  district               VARCHAR(120),
+  state                  VARCHAR(120),
+  display_name           TEXT,
+  source                 VARCHAR(20) DEFAULT 'nominatim',
+  expires_at             TIMESTAMPTZ NOT NULL,
+  created_at             TIMESTAMPTZ DEFAULT NOW(),
+  updated_at             TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_reverse_geocode_cache_expires ON reverse_geocode_cache(expires_at);
+
+CREATE TABLE IF NOT EXISTS pincode_locality_defaults (
+  pincode              VARCHAR(6) PRIMARY KEY REFERENCES pincode_meta(pincode) ON DELETE CASCADE,
+  canonical_locality   VARCHAR(120) NOT NULL,
+  normalized_locality  VARCHAR(120) NOT NULL,
+  confidence_score     DECIMAL(5,2) DEFAULT 0,
+  support_count        INT DEFAULT 0,
+  weighted_score       INT DEFAULT 0,
+  total_contributors   INT DEFAULT 0,
+  runner_up_locality   VARCHAR(120),
+  runner_up_weight     INT DEFAULT 0,
+  status               VARCHAR(15) DEFAULT 'pending' CHECK (status IN ('pending','confirmed')),
+  created_at           TIMESTAMPTZ DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pincode_locality_defaults_status ON pincode_locality_defaults(status, updated_at DESC);
 
 -- MEDIA ASSETS
 CREATE TABLE IF NOT EXISTS media_assets (

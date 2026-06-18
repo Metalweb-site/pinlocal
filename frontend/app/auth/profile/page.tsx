@@ -1,6 +1,6 @@
 'use client'
 
-import { ChangeEvent, useRef, useState } from 'react'
+import { ChangeEvent, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { Camera, ImageIcon, Loader2, MapPin, Sparkles, UserRound } from 'lucide-react'
@@ -10,6 +10,10 @@ import { updateMe, uploadMedia } from '@/lib/api'
 import { IMAGE_FILE_ACCEPT, validateMediaFile } from '@/lib/media'
 import { CATEGORIES } from '@/types'
 import Button from '@/components/ui/Button'
+
+function normalizeLocalityValue(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '').trim()
+}
 
 export default function ProfileOnboardingPage() {
   const { user, loading: authLoading } = useAuth()
@@ -28,6 +32,18 @@ export default function ProfileOnboardingPage() {
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [coverUploading, setCoverUploading] = useState(false)
+
+  useEffect(() => {
+    if (!user) return
+    setUsername(user.username ?? '')
+    setBio(user.bio ?? '')
+    setLocationText(user.location_text ?? user.locality_name ?? user.city ?? '')
+    setInterests(user.interests ?? [])
+    setAvatarUrl(user.avatar_url ?? '')
+    setAvatarPreview(user.avatar_url ?? '')
+    setCoverUrl(user.cover_image_url ?? '')
+    setCoverPreview(user.cover_image_url ?? '')
+  }, [user])
 
   const toggleInterest = (label: string) => {
     setInterests(prev => prev.includes(label) ? prev.filter(item => item !== label) : [...prev, label])
@@ -110,10 +126,17 @@ export default function ProfileOnboardingPage() {
 
     setSaving(true)
     try {
+      const previousLocality = user?.locality_name ?? user?.location_text ?? ''
       const res = await updateMe({
         username: cleanUsername,
         bio: cleanBio,
         location_text: cleanLocation,
+        locality_name: cleanLocation,
+        locality_confirmed: true,
+        locality_user_edited: normalizeLocalityValue(cleanLocation) !== normalizeLocalityValue(previousLocality),
+        location_source: normalizeLocalityValue(cleanLocation) !== normalizeLocalityValue(previousLocality)
+          ? 'manual'
+          : (user?.location_source ?? 'gps'),
         interests,
         ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
         ...(coverUrl ? { cover_image_url: coverUrl } : {}),
@@ -138,7 +161,7 @@ export default function ProfileOnboardingPage() {
 
   return (
     <div className="min-h-screen bg-[#FBFCFF] px-4 py-8 text-[#081234]">
-      <div className="mx-auto w-full max-w-3xl overflow-hidden rounded-[18px] border border-[#DDE5F3] bg-white shadow-[0_24px_70px_rgba(30,56,104,0.10)]">
+      <div className="mx-auto w-full max-w-3xl overflow-hidden form-hero">
         <div className="border-b border-[#E4E9F4] p-6">
           <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-[14px] bg-[#075CFF] text-white shadow-[0_14px_32px_rgba(7,92,255,0.28)]">
             <UserRound size={23} />
@@ -150,7 +173,7 @@ export default function ProfileOnboardingPage() {
         </div>
 
         <div className="space-y-6 p-6">
-          <div className="overflow-hidden rounded-[14px] border border-[#DDE5F3] bg-[#F7FAFF]">
+          <div className="form-section overflow-hidden">
             <button type="button" onClick={() => coverRef.current?.click()} className="relative block h-36 w-full overflow-hidden text-left">
               {coverPreview ? <img src={coverPreview} alt="" className="h-full w-full object-cover" /> : <div className="grid h-full w-full place-items-center text-[#697391]"><ImageIcon size={30} /></div>}
               <span className="absolute right-4 top-4 inline-flex h-9 items-center gap-2 rounded-[8px] bg-white/95 px-3 text-[12px] font-black text-[#075CFF] shadow">
@@ -174,20 +197,39 @@ export default function ProfileOnboardingPage() {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="form-surface p-4 sm:p-5">
+            <div className="mb-4">
+              <div className="form-kicker">
+                <UserRound size={12} className="text-[#075CFF]" />
+                First impression
+              </div>
+            </div>
+            {(user?.city || user?.district || user?.state) && (
+              <div className="mb-4 rounded-[16px] border border-[#D7E5FF] bg-[#F5F8FF] px-4 py-3 shadow-[0_10px_28px_rgba(7,92,255,0.06)]">
+                <div className="text-[11px] font-black uppercase tracking-[0.12em] text-[#075CFF]">Location context</div>
+                <p className="mt-1 text-[14px] font-black text-[#081234]">
+                  {user?.location_text || user?.locality_name || user?.city}
+                </p>
+                <p className="mt-1 text-[12px] font-semibold text-[#697391]">
+                  {[user?.city, user?.district, user?.state].filter(Boolean).join(' • ')}
+                </p>
+              </div>
+            )}
+            <div className="grid gap-4 md:grid-cols-2">
             <Field label="Name">
-              <input value={username} onChange={(e) => setUsername(e.target.value.replace(/[^a-z0-9_. ]/gi, '').slice(0, 30))} placeholder="Your public name" className="profile-input" />
+              <input value={username} onChange={(e) => setUsername(e.target.value.replace(/[^a-z0-9_. ]/gi, '').slice(0, 30))} placeholder="Your public name" className="form-input" />
             </Field>
             <Field label="Local area">
               <div className="relative">
                 <MapPin size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#075CFF]" />
-                <input value={locationText} onChange={(e) => setLocationText(e.target.value.slice(0, 120))} placeholder="Versova, Mumbai" className="profile-input pl-10" />
+                <input value={locationText} onChange={(e) => setLocationText(e.target.value.slice(0, 120))} placeholder="Versova, Mumbai" className="form-input pl-10" />
               </div>
             </Field>
+            </div>
           </div>
 
           <Field label="Bio">
-            <textarea value={bio} onChange={(e) => setBio(e.target.value.slice(0, 240))} placeholder="Tell neighbours what you care about, what you do, or how you can help locally." className="profile-input min-h-[118px] resize-none py-3 leading-relaxed" />
+            <textarea value={bio} onChange={(e) => setBio(e.target.value.slice(0, 240))} placeholder="Tell neighbours what you care about, what you do, or how you can help locally." className="form-textarea min-h-[150px]" />
             <p className="mt-2 text-right text-[11px] font-bold text-[#8B96B2]">{bio.length}/240</p>
           </Field>
 
@@ -199,7 +241,7 @@ export default function ProfileOnboardingPage() {
               {CATEGORIES.map(category => {
                 const selected = interests.includes(category.label)
                 return (
-                  <button key={category.label} type="button" onClick={() => toggleInterest(category.label)} className={`min-h-12 rounded-[9px] border px-3 text-left text-[13px] font-black transition-all ${selected ? 'border-[#075CFF] bg-[#075CFF] text-white shadow-[0_12px_28px_rgba(7,92,255,0.22)]' : 'border-[#D7DFF0] bg-white text-[#44506E] hover:border-[#C9D6FF]'}`}>
+                  <button key={category.label} type="button" onClick={() => toggleInterest(category.label)} className={`min-h-12 px-3 text-left ${selected ? 'form-chip form-chip-active' : 'form-chip'}`}>
                     <span className="mr-2">{category.emoji}</span>
                     {category.label}
                   </button>

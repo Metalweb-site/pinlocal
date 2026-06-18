@@ -17,6 +17,7 @@ import { useAuthStore } from '@/store/auth.store'
 import { Notification } from '@/types'
 import Avatar from '@/components/shared/Avatar'
 import NotificationBell from '@/components/shared/NotificationBell'
+import PincodeSwitcher from '@/components/shared/PincodeSwitcher'
 import {
   AtSign,
   Bell,
@@ -71,7 +72,7 @@ type MuteGroup = { id: string; name: string; cover_image_url?: string | null; pi
 type MuteChat = { id: string; other_user?: { username?: string | null; phone?: string; avatar_url?: string | null; primary_pincode?: string } ; preference?: 'all' | 'muted' }
 
 export default function AlertsPage() {
-  const { user } = useAuthStore()
+  const { user, activePincode } = useAuthStore()
   const { loading: authLoading } = useAuth()
   const [notifs, setNotifs] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
@@ -209,7 +210,7 @@ export default function AlertsPage() {
     return notifs
   }, [filter, notifs])
 
-  const pincode = user?.primary_pincode ?? '400001'
+  const pincode = activePincode || user?.primary_pincode || '400001'
   const userName = user?.username ?? 'Sujal'
 
   if (authLoading || loading) {
@@ -226,11 +227,7 @@ export default function AlertsPage() {
       <div className="hidden xl:block">
         <header className="sticky top-0 z-30 border-b border-[#E4E9F4] bg-white/90 backdrop-blur-xl">
           <div className="mx-auto flex h-[76px] max-w-[1220px] items-center gap-8 px-9">
-            <button className="flex h-10 items-center gap-3 rounded-[8px] border border-[#D7DFF0] bg-white px-3.5 text-[15px] font-black text-[#081234] shadow-[0_10px_30px_rgba(40,70,120,0.06)]">
-              <MapPin size={20} className="text-[#075CFF]" strokeWidth={2.4} />
-              {pincode}
-              <ChevronDown size={16} className="text-[#697391]" />
-            </button>
+            <PincodeSwitcher variant="desktop-header" />
 
             <div className="mx-auto flex h-10 w-[520px] items-center rounded-[8px] border border-[#D7DFF0] bg-white px-4 shadow-[0_10px_30px_rgba(40,70,120,0.06)]">
               <Search size={20} className="mr-3 text-[#697391]" />

@@ -6,6 +6,16 @@ export interface User {
   cover_image_url?: string | null
   bio?: string | null
   location_text?: string | null
+  locality_name?: string | null
+  locality_user_edited?: boolean | null
+  locality_confirmed?: boolean | null
+  city?: string | null
+  district?: string | null
+  state?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  location_source?: 'gps' | 'manual' | 'pincode' | null
+  location_accuracy_meters?: number | null
   website_url?: string | null
   has_passcode?: boolean
   primary_pincode: string

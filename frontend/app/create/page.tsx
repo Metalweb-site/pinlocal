@@ -23,7 +23,7 @@ type PendingMedia = {
 export default function CreatePage() {
   const { loading: authLoading } = useAuth()
   const router = useRouter()
-  const { user } = useAuthStore()
+  const { user, activePincode } = useAuthStore()
   const { setCategory: setFeedCategory, setPosts, setPage, setHasMore } = useFeedStore()
 
   const [mode, setMode] = useState<'post' | 'group' | 'event'>('post')
@@ -287,37 +287,53 @@ export default function CreatePage() {
 
   return (
     <div className="min-h-screen flex flex-col pb-[92px]">
-      <div className="sticky top-0 z-40 bg-surface/86 backdrop-blur-xl border-b border-border px-5 py-5 pt-safe flex items-center gap-4">
-        <button
-          onClick={() => router.back()}
-          className="w-10 h-10 rounded-[10px] premium-inset flex items-center justify-center active:scale-90 transition-all hover:border-text1"
-        >
-          <X size={18} strokeWidth={2.5} />
-        </button>
-        <h1 className="font-display font-black text-[26px] uppercase tracking-tight leading-none">
-          {mode === 'post' ? 'Create a Post' : mode === 'event' ? 'Register Event' : 'Start a Group'}
-        </h1>
+      <div className="px-5 pt-[max(env(safe-area-inset-top),20px)] xl:px-10">
+        <div className="mx-auto w-full max-w-3xl pt-3">
+          <div className="form-surface flex items-center gap-4 px-4 py-4 sm:px-5">
+            <button
+              onClick={() => router.back()}
+              className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[14px] border border-[#D8E2F2] bg-white text-[#081234] shadow-[0_12px_28px_rgba(30,56,104,0.05)] transition-all hover:border-[#C9D6FF] hover:text-[#075CFF] active:scale-90"
+            >
+              <X size={18} strokeWidth={2.5} />
+            </button>
+            <div className="min-w-0">
+              <p className="text-[11px] font-black uppercase tracking-[0.08em] text-[#697391]">
+                {mode === 'post' ? 'Post builder' : mode === 'event' ? 'Event builder' : 'Group builder'}
+              </p>
+              <h1 className="mt-1 text-[24px] font-black leading-none tracking-[-0.04em] text-[#081234] sm:text-[28px]">
+                {mode === 'post' ? 'Create a Post' : mode === 'event' ? 'Create Event' : 'Create Group'}
+              </h1>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-8 flex flex-col gap-8 animate-fade-up xl:px-10">
+      <div className="flex-1 overflow-y-auto px-5 py-6 flex flex-col gap-8 animate-fade-up xl:px-10">
         {mode === 'post' ? (
           <div className="mx-auto w-full max-w-3xl">
-            <div className="rounded-[14px] border border-[#DDE5F3] bg-white p-5 shadow-[0_22px_58px_rgba(30,56,104,0.08)]">
-              <div className="mb-5">
-                <h2 className="text-[22px] font-black tracking-[-0.03em] text-[#081234]">Create Post</h2>
-                <p className="mt-1 text-[13px] font-semibold text-[#697391]">Share updates, ask questions, or start a local discussion.</p>
+            <div className="form-hero p-5 sm:p-6">
+              <div className="mb-6">
+                <div className="form-kicker mb-4">
+                  <Sparkles size={13} className="text-[#075CFF]" />
+                  Local conversation
+                </div>
+                <h2 className="text-[28px] font-black tracking-[-0.04em] text-[#081234]">Create Post</h2>
+                <p className="mt-2 max-w-2xl text-[14px] font-semibold leading-relaxed text-[#697391]">
+                  Start a sharp, trustworthy neighbourhood update with better structure, tags, and media.
+                </p>
               </div>
 
-              <div className="space-y-3 border-b border-[#E4E9F4] pb-5">
-                <div>
-                  <p className="mb-2 text-[12px] font-black text-[#081234]">Share in</p>
+              <div className="form-surface space-y-5 p-4 sm:p-5">
+                <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_260px]">
+                  <div>
+                  <p className="form-label mb-2">Share in</p>
                   <div className="relative">
                     <Users size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#075CFF]" />
                     <select
                       value={selectedGroupId}
                       onChange={e => setSelectedGroupId(e.target.value)}
                       disabled={groupsLoading || postingGroups.length === 0}
-                      className="h-12 w-full appearance-none rounded-[8px] border border-[#D7DFF0] bg-white pl-12 pr-10 text-left text-[13px] font-black text-[#172143] outline-none transition focus:border-[#075CFF] focus:ring-4 focus:ring-[#075CFF]/10"
+                      className="form-select appearance-none pl-12 pr-10 text-left text-[13px] font-black text-[#172143]"
                     >
                       {postingGroups.length === 0 && <option value="">No admin/moderator groups available</option>}
                       {postingGroups.map(group => (
@@ -329,46 +345,47 @@ export default function CreatePage() {
                     <ChevronDown size={16} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#697391]" />
                   </div>
                   {postingGroups.length === 0 && (
-                    <p className="mt-2 text-[11px] font-semibold text-[#697391]">
+                    <p className="form-helper">
                       You can publish posts only from groups where you are admin or moderator.
                     </p>
                   )}
-                </div>
+                  </div>
 
-                <button type="button" className="flex h-14 w-full items-center justify-between rounded-[8px] border border-[#D7DFF0] bg-white px-4 text-left">
-                  <span className="flex min-w-0 items-center gap-3">
-                    <span className="grid h-9 w-9 place-items-center rounded-full bg-[#EAF2FF] text-[#075CFF]"><UserRound size={18} /></span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-[14px] font-black text-[#081234]">{user?.username ?? 'Resident'}</span>
-                      <span className="block text-[12px] font-semibold text-[#697391]">{user?.primary_pincode ?? '000000'}</span>
+                  <div className="form-section flex min-h-[92px] items-center justify-between px-4 text-left">
+                    <span className="flex min-w-0 items-center gap-3">
+                      <span className="grid h-11 w-11 place-items-center rounded-full bg-[#EAF2FF] text-[#075CFF]"><UserRound size={19} /></span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[14px] font-black text-[#081234]">{user?.username ?? 'Resident'}</span>
+                        <span className="mt-1 block text-[12px] font-semibold text-[#697391]">{activePincode || user?.primary_pincode || '000000'} area</span>
+                      </span>
                     </span>
-                  </span>
-                  <ChevronDown size={16} className="text-[#697391]" />
-                </button>
+                    <ChevronDown size={16} className="text-[#697391]" />
+                  </div>
+                </div>
               </div>
 
-              <div className="py-5">
-                <p className="mb-3 text-[13px] font-black text-[#081234]">What's on your mind, {user?.username?.split(' ')[0] ?? 'neighbour'}?</p>
+              <div className="py-6">
+                <p className="mb-3 text-[14px] font-black text-[#081234]">What&apos;s on your mind, {user?.username?.split(' ')[0] ?? 'neighbour'}?</p>
                 <textarea
                   value={postText}
                   onChange={e => setPostText(e.target.value)}
                   maxLength={2000}
                   rows={7}
                   placeholder="Share something with your community..."
-                  className="min-h-[158px] w-full resize-none rounded-[10px] border border-[#D7DFF0] bg-white px-4 py-4 text-[14px] font-semibold leading-relaxed text-[#081234] outline-none transition placeholder:text-[#8B96B2] focus:border-[#075CFF] focus:ring-4 focus:ring-[#075CFF]/10"
+                  className="form-textarea min-h-[170px]"
                 />
                 <div className="mt-1 text-right text-[11px] font-bold text-[#697391]">{postText.length}/2000</div>
 
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <button type="button" onClick={() => postMediaRef.current?.click()} className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-[#D7DFF0] bg-white px-4 text-[12px] font-black text-[#172143] hover:border-[#C9D6FF] hover:text-[#075CFF]">
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <button type="button" onClick={() => postMediaRef.current?.click()} className="inline-flex h-11 items-center gap-2 rounded-[12px] border border-[#D8E2F2] bg-white px-4 text-[12px] font-black text-[#172143] shadow-[0_12px_28px_rgba(30,56,104,0.04)] hover:border-[#C9D6FF] hover:text-[#075CFF]">
                     {postUploading ? <Loader2 size={16} className="animate-spin text-[#075CFF]" /> : <ImageIcon size={16} className="text-[#16A34A]" />}
                     {postUploading ? `Uploading ${postUploadProgress}%` : postProcessingIds.length > 0 ? 'Processing media' : 'Photo / Video'}
                   </button>
-                  <button type="button" onClick={() => toast('Polls are coming next')} className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-[#D7DFF0] bg-white px-4 text-[12px] font-black text-[#172143] hover:border-[#C9D6FF] hover:text-[#075CFF]">
+                  <button type="button" onClick={() => toast('Polls are coming next')} className="inline-flex h-11 items-center gap-2 rounded-[12px] border border-[#D8E2F2] bg-white px-4 text-[12px] font-black text-[#172143] shadow-[0_12px_28px_rgba(30,56,104,0.04)] hover:border-[#C9D6FF] hover:text-[#075CFF]">
                     <BarChart3 size={16} className="text-[#075CFF]" />
                     Poll
                   </button>
-                  <button type="button" onClick={() => toast('Feeling/activity is coming next')} className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-[#D7DFF0] bg-white px-4 text-[12px] font-black text-[#172143] hover:border-[#C9D6FF] hover:text-[#075CFF]">
+                  <button type="button" onClick={() => toast('Feeling/activity is coming next')} className="inline-flex h-11 items-center gap-2 rounded-[12px] border border-[#D8E2F2] bg-white px-4 text-[12px] font-black text-[#172143] shadow-[0_12px_28px_rgba(30,56,104,0.04)] hover:border-[#C9D6FF] hover:text-[#075CFF]">
                     <SmilePlus size={16} className="text-[#F97316]" />
                     Feeling / Activity
                   </button>
@@ -396,7 +413,7 @@ export default function CreatePage() {
                 {postMedia.length > 0 && (
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     {postMedia.map(item => (
-                      <div key={item.assetId || item.url} className="relative h-32 overflow-hidden rounded-[10px] border border-[#D7DFF0]">
+                      <div key={item.assetId || item.url} className="relative h-32 overflow-hidden rounded-[14px] border border-[#D7DFF0] shadow-[0_12px_28px_rgba(30,56,104,0.05)]">
                         {isVideoUrl(item.url) ? (
                           <video src={item.url} className="h-full w-full object-cover" controls autoPlay loop muted preload="metadata" playsInline />
                         ) : (
@@ -412,21 +429,21 @@ export default function CreatePage() {
                 )}
               </div>
 
-              <div className="border-y border-[#E4E9F4] py-5">
-                <p className="mb-3 text-[12px] font-black text-[#081234]">Add to your post</p>
+              <div className="border-y border-[#E4E9F4] py-6">
+                <p className="form-label mb-3">Add to your post</p>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <PostTool icon={<MapPin size={19} />} label="Location" onClick={() => toast(`Using ${user?.primary_pincode ?? 'your pincode'}`)} />
+                  <PostTool icon={<MapPin size={19} />} label="Location" onClick={() => toast(`Using ${activePincode || user?.primary_pincode || 'your pincode'}`)} />
                   <PostTool icon={<CalendarDays size={19} />} label="Event" onClick={() => openMode('event')} />
                   <PostTool icon={<AtSign size={19} />} label="Tag People" onClick={() => toast('Tagging people is coming next')} />
                   <PostTool icon={<Hash size={19} />} label="Hashtag" onClick={() => document.getElementById('popular-hashtags')?.scrollIntoView({ behavior: 'smooth', block: 'center' })} />
                 </div>
               </div>
 
-              <div id="popular-hashtags" className="border-b border-[#E4E9F4] py-5">
+              <div id="popular-hashtags" className="border-b border-[#E4E9F4] py-6">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[12px] font-black text-[#081234]">Popular hashtags</p>
-                    <p className="mt-1 text-[11px] font-semibold text-[#697391]">Hashtags categorize your post for filters and discovery.</p>
+                    <p className="form-label mb-1">Popular hashtags</p>
+                    <p className="text-[11px] font-semibold text-[#697391]">Hashtags categorize your post for filters and discovery.</p>
                   </div>
                   <span className="rounded-full bg-[#EAF2FF] px-3 py-1 text-[11px] font-black text-[#075CFF]">{postCategory}</span>
                 </div>
@@ -438,7 +455,7 @@ export default function CreatePage() {
                         key={item.tag}
                         type="button"
                         onClick={() => toggleHashtag(item.tag, item.category)}
-                        className={`rounded-full border px-3 py-2 text-[12px] font-black transition-all ${active ? 'border-[#075CFF] bg-[#075CFF] text-white shadow-[0_10px_24px_rgba(7,92,255,0.18)]' : 'border-[#D7DFF0] bg-white text-[#44506E] hover:border-[#C9D6FF] hover:text-[#075CFF]'}`}
+                        className={`rounded-full px-3 py-2 text-[12px] font-black transition-all ${active ? 'form-chip form-chip-active' : 'form-chip'}`}
                       >
                         #{item.tag}
                       </button>
@@ -447,8 +464,8 @@ export default function CreatePage() {
                 </div>
               </div>
 
-              <div className="border-b border-[#E4E9F4] py-5">
-                <p className="mb-2 text-[12px] font-black text-[#081234]">Post settings</p>
+              <div className="border-b border-[#E4E9F4] py-6">
+                <p className="form-label mb-2">Post settings</p>
                 <SettingToggle icon={<MessageCircle size={18} />} title="Allow comments" desc="Everyone can comment on this post" checked={allowComments} onClick={() => setAllowComments(v => !v)} />
                 <SettingToggle icon={<ShieldCheck size={18} />} title="Allow reactions" desc="Everyone can react to this post" checked={allowReactions} onClick={() => setAllowReactions(v => !v)} />
                 <button type="button" onClick={() => toast(selectedShareGroup ? `This post will publish in ${selectedShareGroup.name}` : 'Choose a group first')} className="flex w-full items-center justify-between gap-4 border-t border-[#E4E9F4] py-4 text-left">
@@ -464,13 +481,13 @@ export default function CreatePage() {
                 </button>
               </div>
 
-              <div className="flex justify-end gap-3 pt-5">
-                <button type="button" onClick={() => toast('Drafts are coming next')} className="h-12 rounded-[8px] border border-[#D7DFF0] bg-white px-7 text-[13px] font-black text-[#44506E]">Save Draft</button>
+              <div className="form-action-bar -mx-5 -mb-5 mt-2 flex flex-col gap-3 px-5 py-4 sm:-mx-6 sm:-mb-6 sm:flex-row sm:justify-end sm:px-6">
+                <button type="button" onClick={() => toast('Drafts are coming next')} className="h-12 rounded-[12px] border border-[#D8E2F2] bg-white px-7 text-[13px] font-black text-[#44506E] shadow-[0_12px_28px_rgba(30,56,104,0.04)]">Save Draft</button>
                 <button
                   type="button"
                   onClick={handleCreatePost}
                   disabled={postLoading || postUploading || postProcessingIds.length > 0 || !selectedShareGroup || (!postText.trim() && postMedia.length === 0)}
-                  className="inline-flex h-12 items-center gap-2 rounded-[8px] bg-[#075CFF] px-8 text-[13px] font-black text-white shadow-[0_14px_32px_rgba(7,92,255,0.22)] disabled:opacity-50"
+                  className="inline-flex h-12 items-center gap-2 rounded-[12px] bg-[#075CFF] px-8 text-[13px] font-black text-white shadow-[0_16px_34px_rgba(7,92,255,0.24)] disabled:opacity-50"
                 >
                   {postLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                   Post
@@ -479,238 +496,306 @@ export default function CreatePage() {
             </div>
           </div>
         ) : mode === 'event' ? (
-          <div className="space-y-8 max-w-3xl mx-auto w-full">
-            <div>
-              <div className="text-[10px] font-bold text-text3 tracking-[2px] uppercase font-mono mb-4 ml-1">Hosting Group</div>
-              {groupsLoading ? (
-                <div className="h-24 rounded-[12px] premium-card flex items-center justify-center">
-                  <Loader2 size={20} className="animate-spin text-coral" />
+          <div className="mx-auto w-full max-w-3xl">
+            <div className="form-hero p-5 sm:p-6">
+              <div className="mb-6">
+                <div className="form-kicker mb-4">
+                  <CalendarDays size={13} className="text-[#075CFF]" />
+                  Neighbourhood event
                 </div>
-              ) : postingGroups.length === 0 ? (
-                <div className="rounded-[12px] premium-card p-5 text-center">
-                  <p className="text-text2 text-[13px] leading-relaxed mb-4">
-                    Events can only be registered by a group admin or moderator.
-                  </p>
-                  <button onClick={() => openMode('group')} className="h-11 px-5 rounded-[8px] bg-text1 text-bg text-[12px] font-black uppercase tracking-widest">
-                    Start Group
-                  </button>
-                </div>
-              ) : (
-                <div className="grid gap-2">
-                  {postingGroups.map(group => {
-                    const active = selectedGroupId === group.id
-                    return (
-                      <button
-                        key={group.id}
-                        onClick={() => setSelectedGroupId(group.id)}
-                        className={`w-full p-4 rounded-[12px] text-left transition-all interactive-lift ${
-                          active ? 'premium-card border-coral/50' : 'premium-inset hover:border-text1'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="font-display text-[22px] font-bold leading-none truncate">{group.name}</div>
-                            <div className="mt-2 flex items-center gap-2 text-[11px] font-mono text-text3">
-                              <span>{group.category}</span>
-                              <span>-</span>
-                              <span>{group.pincode}</span>
-                            </div>
-                          </div>
-                          <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 ${active ? 'border-coral bg-coral' : 'border-white/20'}`} />
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
-            <Input label="Event title" placeholder="e.g. Sunday football match" value={eventTitle} onChange={e => setEventTitle(e.target.value)} maxLength={120} className="text-[18px] h-14" />
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <div className="text-[10px] font-bold text-text3 tracking-[2px] uppercase font-mono mb-3 ml-1 flex items-center gap-2"><CalendarDays size={12} /> Date</div>
-                <input type="date" value={eventDate} onChange={e => setEventDate(e.target.value)} className="w-full h-14 premium-card rounded-[14px] px-5 text-text1 text-[15px] font-body outline-none focus:border-text1 transition-all" />
+                <h2 className="text-[28px] font-black tracking-[-0.04em] text-[#081234]">Create Event</h2>
+                <p className="mt-2 max-w-2xl text-[14px] font-semibold leading-relaxed text-[#697391]">Set up a stronger event listing with the essentials people need at a glance.</p>
               </div>
-              <div>
-                <div className="text-[10px] font-bold text-text3 tracking-[2px] uppercase font-mono mb-3 ml-1 flex items-center gap-2"><Clock3 size={12} /> Time</div>
-                <input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} className="w-full h-14 premium-card rounded-[14px] px-5 text-text1 text-[15px] font-body outline-none focus:border-text1 transition-all" />
-              </div>
-            </div>
 
-            <Input label="Venue" placeholder="e.g. Khar Gymkhana Ground" value={eventVenue} onChange={e => setEventVenue(e.target.value)} maxLength={160} className="text-[16px] h-14" />
-
-            <div>
-              <div className="text-[10px] font-bold text-text3 tracking-[2px] uppercase font-mono mb-3 ml-1">Event details</div>
-              <textarea
-                value={eventDetails}
-                onChange={e => setEventDetails(e.target.value)}
-                maxLength={2000}
-                rows={5}
-                placeholder="Tell neighbours what will happen, who can join, fees, requirements, contact info..."
-                className="w-full premium-card rounded-[14px] px-5 py-4 text-text1 text-[15px] font-body outline-none resize-none focus:border-text1 transition-all placeholder:text-text3/70"
-              />
-            </div>
-
-            <div>
-              <div className="text-[10px] font-bold text-text3 tracking-[2px] uppercase font-mono mb-3 ml-1">Poster / Media</div>
-              {postMedia.length > 0 && (
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  {postMedia.map(item => (
-                    <div key={item.assetId || item.url} className="relative h-28 rounded-[12px] overflow-hidden border border-border shadow-sm">
-                      {isVideoUrl(item.url) ? (
-                        <video src={item.url} className="w-full h-full object-cover" controls autoPlay loop muted preload="metadata" playsInline />
-                      ) : (
-                        <img src={item.thumbnailUrl ?? item.url} alt="" className="w-full h-full object-cover" />
-                      )}
-                      {item.status === 'processing' && <span className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-1 text-[10px] font-black uppercase text-white">Processing</span>}
-                      <button onClick={() => setPostMedia(current => current.filter(media => media.assetId !== item.assetId))} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 border border-white/20 flex items-center justify-center">
-                        <X size={13} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <label className="h-14 rounded-[12px] border border-dashed border-border bg-surface flex items-center justify-center gap-3 cursor-pointer active:scale-[0.98] transition-all hover:border-text1">
-                <input type="file" accept={MEDIA_FILE_ACCEPT} className="hidden" onChange={handlePostMedia} />
-                {postUploading ? <Loader2 size={18} className="animate-spin text-coral" /> : <Upload size={18} className="text-coral" />}
-                <span className="text-[12px] font-black uppercase tracking-widest text-text2">{postUploading ? `Uploading ${postUploadProgress}%` : postProcessingIds.length > 0 ? 'Processing media' : 'Attach media'}</span>
-              </label>
-              {(postUploading || postProcessingIds.length > 0) && (
-                <div className="mt-3 overflow-hidden rounded-full bg-[#EAF2FF]">
-                  <div
-                    className="h-2 rounded-full bg-[#075CFF] transition-all"
-                    style={{ width: `${postUploading ? postUploadProgress : 100}%` }}
-                  />
-                </div>
-              )}
-              {retryMediaFile && (
-                <button
-                  type="button"
-                  onClick={() => uploadPostMediaFile(retryMediaFile)}
-                  className="mt-3 rounded-[8px] border border-[#FCA5A5] bg-[#FEF2F2] px-4 py-2 text-[12px] font-black text-[#DC2626]"
-                >
-                  Retry failed upload
-                </button>
-              )}
-            </div>
-
-            <Button
-              onClick={handleCreateEvent}
-              loading={eventLoading}
-              disabled={postUploading || postProcessingIds.length > 0 || !selectedGroupId || !eventTitle.trim() || !eventDate || !eventTime || !eventVenue.trim()}
-              className="h-14 rounded-[10px]"
-            >
-              Register Event
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-8 max-w-3xl mx-auto w-full">
-            <div>
-              <div className="text-[10px] font-bold text-text3 tracking-[2px] uppercase font-mono mb-3 ml-1">Cover Image</div>
-              <label className="block cursor-pointer group">
-                <input type="file" accept={IMAGE_FILE_ACCEPT} className="hidden" onChange={handleCover} />
-                {coverUrl ? (
-                  <div className="relative w-full h-40 rounded-[14px] overflow-hidden border border-border shadow-lg transition-transform group-hover:scale-[1.01]">
-                    <img src={coverUrl} alt="" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="bg-white/20 backdrop-blur-md border border-white/30 text-white px-4 py-2 rounded-full text-[12px] font-bold uppercase tracking-wider">Change Photo</span>
-                    </div>
+              <div className="form-surface border-b-0 p-4 sm:p-5">
+                <p className="form-label mb-3">Hosting group</p>
+                {groupsLoading ? (
+                  <div className="form-section grid h-24 place-items-center">
+                    <Loader2 size={20} className="animate-spin text-[#075CFF]" />
+                  </div>
+                ) : postingGroups.length === 0 ? (
+                  <div className="form-section p-5 text-center">
+                    <p className="text-[13px] font-semibold leading-relaxed text-[#697391]">
+                      Events can only be registered by a group admin or moderator.
+                    </p>
+                    <button onClick={() => openMode('group')} className="mt-4 inline-flex h-11 items-center rounded-[12px] bg-[#081234] px-5 text-[12px] font-black uppercase tracking-[0.08em] text-white">
+                      Start Group
+                    </button>
                   </div>
                 ) : (
-                  <div className="w-full h-40 rounded-[14px] border border-dashed border-border bg-surface flex flex-col items-center justify-center gap-3 hover:border-text1 transition-all group-active:scale-[0.98]">
-                    {uploading ? (
-                      <div className="flex flex-col items-center gap-2">
-                        <Loader2 size={24} className="animate-spin text-coral" />
-                        <span className="text-text3 text-[11px] font-mono uppercase tracking-widest">Uploading...</span>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="w-12 h-12 rounded-2xl bg-bg/50 border border-white/[0.05] flex items-center justify-center text-text3 group-hover:text-coral transition-colors">
-                          <Upload size={24} />
-                        </div>
-                        <span className="text-text3 text-[12px] font-bold uppercase tracking-widest">Add a cover photo</span>
-                      </>
-                    )}
+                  <div className="grid gap-3">
+                    {postingGroups.map(group => {
+                      const active = selectedGroupId === group.id
+                      return (
+                        <button
+                          key={group.id}
+                          onClick={() => setSelectedGroupId(group.id)}
+                          className={`form-section w-full p-4 text-left transition-all ${active ? 'border-[#9CB9FF] bg-[#F7FAFF] shadow-[0_18px_36px_rgba(7,92,255,0.10)]' : 'hover:border-[#C9D6FF]'}`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="truncate text-[18px] font-black leading-none text-[#081234]">{group.name}</div>
+                              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-[#697391]">
+                                <span>{group.category}</span>
+                                <span>&bull;</span>
+                                <span>{group.pincode}</span>
+                                <span>&bull;</span>
+                                <span>{group.role === 'admin' ? 'Admin' : 'Moderator'}</span>
+                              </div>
+                            </div>
+                            <div className={`h-5 w-5 flex-shrink-0 rounded-full border-2 ${active ? 'border-[#075CFF] bg-[#075CFF]' : 'border-[#C5D1E6] bg-white'}`} />
+                          </div>
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
-              </label>
-            </div>
-
-            <Input
-              label="What is the group name?"
-              placeholder="e.g. Versova Tennis Club"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              maxLength={80}
-              className="text-[18px] h-14"
-            />
-
-            <div>
-              <div className="text-[10px] font-bold text-text3 tracking-[2px] uppercase font-mono mb-4 ml-1 flex items-center gap-2">
-                Category <Sparkles size={10} />
               </div>
-              <div className="flex flex-wrap gap-2">
-                {CATEGORIES.map(c => {
-                  const selected = category === c.label
-                  return (
-                    <button
-                      key={c.label}
-                      onClick={() => setCategory(c.label)}
-                    className={`px-4 py-2 rounded-[8px] text-[12px] font-bold border transition-all active:scale-95 ${
-                        selected ? 'bg-text1 border-text1 text-bg' : 'premium-inset text-text2 hover:text-text1'
-                      }`}
-                    >
-                      {c.emoji} {c.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
 
-            <div>
-              <div className="text-[10px] font-bold text-text3 tracking-[2px] uppercase font-mono mb-4 ml-1">Visibility</div>
-              <div className="grid grid-cols-2 gap-3">
-                {(['open', 'private'] as const).map(option => (
+              <div className="grid gap-5 py-6">
+                <div>
+                  <label className="form-label">Event title</label>
+                  <input
+                    value={eventTitle}
+                    onChange={e => setEventTitle(e.target.value)}
+                    maxLength={120}
+                    placeholder="e.g. Sunday football match"
+                    className="form-input text-[15px]"
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="form-label flex items-center gap-2"><CalendarDays size={13} /> Date</label>
+                    <input type="date" value={eventDate} onChange={e => setEventDate(e.target.value)} className="form-input" />
+                  </div>
+                  <div>
+                    <label className="form-label flex items-center gap-2"><Clock3 size={13} /> Time</label>
+                    <input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} className="form-input" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="form-label">Venue</label>
+                  <input
+                    value={eventVenue}
+                    onChange={e => setEventVenue(e.target.value)}
+                    maxLength={160}
+                    placeholder="e.g. Khar Gymkhana Ground"
+                    className="form-input"
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">Event details</label>
+                  <textarea
+                    value={eventDetails}
+                    onChange={e => setEventDetails(e.target.value)}
+                    maxLength={2000}
+                    rows={6}
+                    placeholder="Tell neighbours what will happen, who can join, fees, requirements, contact info..."
+                    className="form-textarea min-h-[180px]"
+                  />
+                </div>
+              </div>
+
+              <div className="border-y border-[#E4E9F4] py-6">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="form-label mb-1">Poster / media</p>
+                    <p className="text-[11px] font-semibold text-[#697391]">Add a poster, banner, or short promo video.</p>
+                  </div>
+                  <span className="rounded-full bg-[#EAF2FF] px-3 py-1 text-[11px] font-black text-[#075CFF]">Optional</span>
+                </div>
+
+                {postMedia.length > 0 && (
+                  <div className="mb-4 grid grid-cols-2 gap-3">
+                    {postMedia.map(item => (
+                      <div key={item.assetId || item.url} className="relative h-32 overflow-hidden rounded-[14px] border border-[#D7DFF0] shadow-[0_12px_28px_rgba(30,56,104,0.05)]">
+                        {isVideoUrl(item.url) ? (
+                          <video src={item.url} className="h-full w-full object-cover" controls autoPlay loop muted preload="metadata" playsInline />
+                        ) : (
+                          <img src={item.thumbnailUrl ?? item.url} alt="" className="h-full w-full object-cover" />
+                        )}
+                        {item.status === 'processing' && <span className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-1 text-[10px] font-black uppercase text-white">Processing</span>}
+                        <button onClick={() => setPostMedia(current => current.filter(media => media.assetId !== item.assetId))} className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-black/60 text-white">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <label className="form-upload flex min-h-[92px] cursor-pointer flex-col items-center justify-center gap-3 px-4 text-center active:scale-[0.99]">
+                  <input type="file" accept={MEDIA_FILE_ACCEPT} className="hidden" onChange={handlePostMedia} />
+                  {postUploading ? <Loader2 size={18} className="animate-spin text-[#075CFF]" /> : <Upload size={18} className="text-[#075CFF]" />}
+                  <span className="text-[12px] font-black uppercase tracking-[0.08em] text-[#172143]">
+                    {postUploading ? `Uploading ${postUploadProgress}%` : postProcessingIds.length > 0 ? 'Processing media' : 'Attach event media'}
+                  </span>
+                </label>
+
+                {(postUploading || postProcessingIds.length > 0) && (
+                  <div className="mt-3 overflow-hidden rounded-full bg-[#EAF2FF]">
+                    <div
+                      className="h-2 rounded-full bg-[#075CFF] transition-all"
+                      style={{ width: `${postUploading ? postUploadProgress : 100}%` }}
+                    />
+                  </div>
+                )}
+                {retryMediaFile && (
                   <button
-                    key={option}
-                    onClick={() => setType(option)}
-                    className={`flex flex-col items-center justify-center gap-3 p-5 rounded-[12px] border transition-all active:scale-[.98] ${
-                      type === option ? 'premium-card border-coral/40 text-coral' : 'premium-inset text-text3'
-                    }`}
+                    type="button"
+                    onClick={() => uploadPostMediaFile(retryMediaFile)}
+                    className="mt-3 rounded-[10px] border border-[#FCA5A5] bg-[#FEF2F2] px-4 py-2 text-[12px] font-black text-[#DC2626]"
                   >
-                    {option === 'open' ? <Unlock size={20} /> : <Lock size={20} />}
-                    <span className="font-display text-[16px] font-bold uppercase tracking-widest">{option}</span>
+                    Retry failed upload
                   </button>
-                ))}
+                )}
+              </div>
+
+              <div className="form-action-bar -mx-5 -mb-5 mt-2 flex flex-col gap-3 px-5 py-4 sm:-mx-6 sm:-mb-6 sm:flex-row sm:justify-end sm:px-6">
+                <button type="button" onClick={() => openMode('post')} className="h-12 rounded-[12px] border border-[#D8E2F2] bg-white px-6 text-[13px] font-black text-[#44506E] shadow-[0_12px_28px_rgba(30,56,104,0.04)]">
+                  Back to Post
+                </button>
+                <Button
+                  onClick={handleCreateEvent}
+                  loading={eventLoading}
+                  disabled={postUploading || postProcessingIds.length > 0 || !selectedGroupId || !eventTitle.trim() || !eventDate || !eventTime || !eventVenue.trim()}
+                  className="h-12 rounded-[12px] px-7"
+                >
+                  Register Event
+                </Button>
               </div>
             </div>
-
-            <div className="premium-card p-4 rounded-[12px] flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-bg/50 flex items-center justify-center flex-shrink-0">
-                <MapPin size={18} className="text-coral" />
+          </div>
+        ) : (
+          <div className="mx-auto w-full max-w-3xl">
+            <div className="form-hero p-5 sm:p-6">
+              <div className="mb-6">
+                <div className="form-kicker mb-4">
+                  <Users size={13} className="text-[#075CFF]" />
+                  Community setup
+                </div>
+                <h2 className="text-[28px] font-black tracking-[-0.04em] text-[#081234]">Create Group</h2>
+                <p className="mt-2 max-w-2xl text-[14px] font-semibold leading-relaxed text-[#697391]">Shape the identity of your group before the first member even joins.</p>
               </div>
-              <div>
-                <div className="text-[10px] font-bold text-text3 tracking-[1.5px] uppercase font-mono mb-0.5">Your Pincode</div>
-                <div className="text-[16px] font-mono font-black text-text1">{user?.primary_pincode ?? '000000'}</div>
+
+              <div className="border-b border-[#E4E9F4] pb-6">
+                <p className="form-label mb-3">Cover image</p>
+                <label className="group block cursor-pointer">
+                  <input type="file" accept={IMAGE_FILE_ACCEPT} className="hidden" onChange={handleCover} />
+                  {coverUrl ? (
+                    <div className="relative h-48 w-full overflow-hidden rounded-[16px] border border-[#D7DFF0] shadow-[0_16px_34px_rgba(30,56,104,0.08)] transition-transform group-hover:scale-[1.005]">
+                      <img src={coverUrl} alt="" className="h-full w-full object-cover" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-[#081234]/35 opacity-0 transition-opacity group-hover:opacity-100">
+                        <span className="rounded-full bg-white/90 px-4 py-2 text-[12px] font-black text-[#075CFF] shadow">Change cover</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="form-upload flex h-48 flex-col items-center justify-center gap-3 px-4 text-center">
+                      {uploading ? (
+                        <>
+                          <Loader2 size={24} className="animate-spin text-[#075CFF]" />
+                          <span className="text-[11px] font-black uppercase tracking-[0.08em] text-[#697391]">Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="grid h-12 w-12 place-items-center rounded-[16px] bg-[#EAF2FF] text-[#075CFF]">
+                            <Upload size={24} />
+                          </div>
+                          <span className="text-[12px] font-black uppercase tracking-[0.08em] text-[#172143]">Add a cover photo</span>
+                          <span className="text-[11px] font-semibold text-[#697391]">This becomes the first visual people see before joining.</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </label>
+              </div>
+
+              <div className="grid gap-5 py-6">
+                <div>
+                  <label className="form-label">Group name</label>
+                  <input
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    maxLength={80}
+                    placeholder="e.g. Versova Tennis Club"
+                    className="form-input text-[15px]"
+                  />
+                </div>
+
+                <div>
+                  <div className="mb-3 flex items-center gap-2 text-[12px] font-black uppercase tracking-[0.08em] text-[#697391]">
+                    Category <Sparkles size={13} className="text-[#075CFF]" />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {CATEGORIES.map(c => {
+                      const selected = category === c.label
+                      return (
+                        <button
+                          key={c.label}
+                          onClick={() => setCategory(c.label)}
+                          className={`rounded-[12px] px-4 py-2.5 text-[12px] font-black transition-all ${selected ? 'form-chip form-chip-active' : 'form-chip'}`}
+                        >
+                          <span className="mr-2">{c.emoji}</span>{c.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="form-label">Visibility</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(['open', 'private'] as const).map(option => {
+                      const active = type === option
+                      return (
+                        <button
+                          key={option}
+                          onClick={() => setType(option)}
+                          className={`form-section flex flex-col items-center justify-center gap-3 p-5 transition-all ${active ? 'border-[#9CB9FF] bg-[#F7FAFF] text-[#075CFF] shadow-[0_18px_36px_rgba(7,92,255,0.10)]' : 'text-[#697391] hover:border-[#C9D6FF]'}`}
+                        >
+                          {option === 'open' ? <Unlock size={20} /> : <Lock size={20} />}
+                          <span className="text-[14px] font-black uppercase tracking-[0.08em]">{option}</span>
+                          <span className="text-[11px] font-semibold">{option === 'open' ? 'Anyone can discover and join' : 'Members join only after approval'}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="form-section flex items-center gap-4 px-4 py-4">
+                  <div className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-full bg-[#EAF2FF] text-[#075CFF]">
+                    <MapPin size={18} />
+                  </div>
+                  <div>
+                    <div className="text-[12px] font-black uppercase tracking-[0.08em] text-[#697391]">Your pincode</div>
+                    <div className="mt-1 text-[16px] font-black text-[#081234]">{activePincode || user?.primary_pincode || '000000'}</div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="form-label">About the group</label>
+                  <textarea
+                    value={desc}
+                    onChange={e => setDesc(e.target.value)}
+                    maxLength={400}
+                    rows={5}
+                    placeholder="Tell people what this group is for, how it should feel, and what kind of posts belong here..."
+                    className="form-textarea min-h-[170px]"
+                  />
+                </div>
+              </div>
+
+              <div className="form-action-bar -mx-5 -mb-5 mt-2 flex flex-col gap-3 px-5 py-4 sm:-mx-6 sm:-mb-6 sm:flex-row sm:justify-end sm:px-6">
+                <button type="button" onClick={() => openMode('post')} className="h-12 rounded-[12px] border border-[#D8E2F2] bg-white px-6 text-[13px] font-black text-[#44506E] shadow-[0_12px_28px_rgba(30,56,104,0.04)]">
+                  Back to Post
+                </button>
+                <Button onClick={handleCreateGroup} loading={loading} disabled={!name.trim()} className="h-12 rounded-[12px] px-7">
+                  Create Community
+                </Button>
               </div>
             </div>
-
-            <div>
-              <div className="text-[10px] font-bold text-text3 tracking-[2px] uppercase font-mono mb-3 ml-1">About the group</div>
-              <textarea
-                value={desc}
-                onChange={e => setDesc(e.target.value)}
-                maxLength={400}
-                rows={4}
-                placeholder="Tell people what this group is for..."
-                className="w-full premium-card rounded-[14px] px-5 py-4 text-text1 text-[15px] font-body outline-none resize-none focus:border-text1 transition-all placeholder:text-text3/70"
-              />
-            </div>
-
-            <Button onClick={handleCreateGroup} loading={loading} disabled={!name.trim()} className="h-14 rounded-[10px]">
-              Create Community
-            </Button>
           </div>
         )}
 

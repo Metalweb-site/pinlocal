@@ -8,6 +8,16 @@ export interface User {
   cover_image_url?: string | null;
   bio?: string | null;
   location_text?: string | null;
+  locality_name?: string | null;
+  locality_user_edited?: boolean | null;
+  locality_confirmed?: boolean | null;
+  city?: string | null;
+  district?: string | null;
+  state?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  location_source?: string | null;
+  location_accuracy_meters?: number | null;
   website_url?: string | null;
   passcode_hash?: string | null;
   has_passcode?: boolean;
@@ -186,6 +196,8 @@ declare module 'fastify' {
       id: string;
       phone: string;
       primary_pincode: string;
+      secondary_pincode: string | null;
+      active_pincode: string;
     };
   }
 

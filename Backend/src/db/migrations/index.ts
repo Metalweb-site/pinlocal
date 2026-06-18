@@ -63,6 +63,16 @@ async function runMigrations() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_image_url TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS location_text VARCHAR(120);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS locality_name VARCHAR(120);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS locality_user_edited BOOLEAN DEFAULT FALSE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS locality_confirmed BOOLEAN DEFAULT FALSE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS city VARCHAR(120);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS district VARCHAR(120);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS state VARCHAR(120);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS latitude DECIMAL(9,6);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS longitude DECIMAL(9,6);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS location_source VARCHAR(20);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS location_accuracy_meters INT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS website_url TEXT;
       ALTER TABLE groups ADD COLUMN IF NOT EXISTS status VARCHAR(15) DEFAULT 'active';
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS share_count INT DEFAULT 0;
@@ -77,6 +87,43 @@ async function runMigrations() {
 
       CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_posts_category_created ON posts(category, created_at DESC);
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS reverse_geocode_cache (
+        cache_key              VARCHAR(32) PRIMARY KEY,
+        lat                    DECIMAL(9,6) NOT NULL,
+        lng                    DECIMAL(9,6) NOT NULL,
+        pincode                VARCHAR(6),
+        locality_name          VARCHAR(120),
+        city                   VARCHAR(120),
+        district               VARCHAR(120),
+        state                  VARCHAR(120),
+        display_name           TEXT,
+        source                 VARCHAR(20) DEFAULT 'nominatim',
+        expires_at             TIMESTAMPTZ NOT NULL,
+        created_at             TIMESTAMPTZ DEFAULT NOW(),
+        updated_at             TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_reverse_geocode_cache_expires ON reverse_geocode_cache(expires_at);
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS pincode_locality_defaults (
+        pincode              VARCHAR(6) PRIMARY KEY REFERENCES pincode_meta(pincode) ON DELETE CASCADE,
+        canonical_locality   VARCHAR(120) NOT NULL,
+        normalized_locality  VARCHAR(120) NOT NULL,
+        confidence_score     DECIMAL(5,2) DEFAULT 0,
+        support_count        INT DEFAULT 0,
+        weighted_score       INT DEFAULT 0,
+        total_contributors   INT DEFAULT 0,
+        runner_up_locality   VARCHAR(120),
+        runner_up_weight     INT DEFAULT 0,
+        status               VARCHAR(15) DEFAULT 'pending' CHECK (status IN ('pending','confirmed')),
+        created_at           TIMESTAMPTZ DEFAULT NOW(),
+        updated_at           TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_pincode_locality_defaults_status ON pincode_locality_defaults(status, updated_at DESC);
     `);
 
     await client.query(`

@@ -9,6 +9,9 @@
     "start": "node dist/index.js",
     "migrate": "ts-node src/db/migrations/index.ts",
     "seed": "ts-node src/db/seed/index.ts",
+    "seed:sample": "ts-node src/db/seed/index.ts --sample",
+    "import:pincodes": "ts-node src/db/seed/index.ts",
+    "recompute:localities": "ts-node src/db/locality-consensus/index.ts",
     "reset:db": "ts-node src/db/reset/index.ts",
     "reset:db:all": "ts-node src/db/reset/index.ts --all"
   },

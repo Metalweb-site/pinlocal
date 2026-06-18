@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import dns from 'node:dns';
 import fastifyCors        from '@fastify/cors';
 import fastifyCookie      from '@fastify/cookie';
 import fastifyHelmet      from '@fastify/helmet';
@@ -33,6 +34,23 @@ const app = Fastify({
     level: config.server.isProd ? 'info' : 'debug',
   },
 });
+
+if (config.network.dnsResultOrder === 'ipv4first') {
+  const originalLookup = dns.lookup.bind(dns);
+  dns.lookup = ((hostname: string, options: any, callback?: any) => {
+    if (typeof options === 'function') {
+      return originalLookup(hostname, { family: 4, all: false }, options);
+    }
+    if (typeof options === 'number') {
+      return originalLookup(hostname, { family: options, all: false }, callback);
+    }
+    return originalLookup(hostname, { family: 4, all: false, ...(options ?? {}) }, callback);
+  }) as typeof dns.lookup;
+}
+
+if (config.network.dnsResultOrder === 'ipv4first' || config.network.dnsResultOrder === 'verbatim') {
+  dns.setDefaultResultOrder(config.network.dnsResultOrder);
+}
 
 async function bootstrap() {
   // ── Security & cross-cutting plugins ──────────────────────────────────────
@@ -121,8 +139,7 @@ async function bootstrap() {
   registerSocketHandlers((app as any).io);
 
   // ── Start background jobs ─────────────────────────────────────────────────
-  await scheduleEngagementJob();
-  await scheduleCleanupJob();
+  await startBackgroundJobs();
 
   // ── Listen ────────────────────────────────────────────────────────────────
   await app.listen({ port: config.server.port, host: '0.0.0.0' });
@@ -158,3 +175,21 @@ bootstrap().catch((err) => {
   console.error('[Bootstrap] Fatal error:', err);
   process.exit(1);
 });
+
+async function startBackgroundJobs(): Promise<void> {
+  const jobs = [
+    ['engagement-score', scheduleEngagementJob],
+    ['nightly-cleanup', scheduleCleanupJob],
+  ] as const;
+
+  for (const [name, start] of jobs) {
+    try {
+      await start();
+    } catch (error: any) {
+      app.log.warn({
+        job: name,
+        err: error?.message ?? error,
+      }, 'Background job scheduler failed; API will continue running');
+    }
+  }
+}

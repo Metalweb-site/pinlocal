@@ -12,10 +12,11 @@ export default function Button({ variant = 'primary', loading, children, classNa
     <button
       disabled={disabled || loading}
       className={cn(
-        'group relative flex items-center justify-center gap-2 w-full h-[52px] overflow-hidden rounded-[8px] font-body text-[14px] font-bold transition-all active:scale-[.99] disabled:opacity-50 disabled:cursor-not-allowed select-none',
+        'group relative flex w-full select-none items-center justify-center gap-2 overflow-hidden rounded-[14px] border font-body text-[14px] font-black transition-all active:scale-[.99] disabled:cursor-not-allowed disabled:opacity-50',
         'focus-visible:ring-2 focus-visible:ring-coral/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg',
-        variant === 'primary' && 'bg-text1 text-bg border border-text1 shadow-[0_8px_20px_rgba(21,25,20,0.12)] hover:bg-coral hover:border-coral hover:text-white',
-        variant === 'ghost'   && 'bg-surface border border-border text-text2 hover:border-text1 hover:text-text1',
+        'h-[54px]',
+        variant === 'primary' && 'border-[#075CFF] bg-[#075CFF] text-white shadow-[0_16px_34px_rgba(7,92,255,0.24)] hover:border-[#0A67FF] hover:bg-[#0A67FF]',
+        variant === 'ghost'   && 'border-[#D8E2F2] bg-white text-[#44506E] shadow-[0_12px_28px_rgba(30,56,104,0.05)] hover:border-[#B8CCFF] hover:text-[#075CFF]',
         variant === 'danger'  && 'bg-red-50 border border-red-200 text-red-700 hover:bg-red-100',
         className
       )}

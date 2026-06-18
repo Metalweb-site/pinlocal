@@ -1,23 +1,27 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Loader2, MapPin, MessageCircle, Search, Send, Smile, UserPlus } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Loader2, MapPin, MessageCircle, MoreVertical, Plus, Search, Send, Smile, UserPlus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { getPersonalChats, getPersonalMessages, markPersonalChatRead, searchChatUsers, sendPersonalMessage, startPersonalChat } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 import { useSocket } from '@/hooks/useSocket'
 import Avatar from '@/components/shared/Avatar'
 import NotificationBell from '@/components/shared/NotificationBell'
+import PincodeSwitcher from '@/components/shared/PincodeSwitcher'
 import EmojiPicker from '@/components/chat/EmojiPicker'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { PersonalConversation, PersonalMessage, User } from '@/types'
 import { timeAgo } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import { useAuthStore } from '@/store/auth.store'
 
 type SearchUser = Pick<User, 'id' | 'phone' | 'username' | 'avatar_url' | 'primary_pincode'>
 
 export default function ChatsPage() {
   const { user, loading: authLoading } = useAuth()
+  const { activePincode } = useAuthStore()
   const router = useRouter()
   const socket = useSocket()
   const [conversations, setConversations] = useState<PersonalConversation[]>([])
@@ -110,7 +114,7 @@ export default function ChatsPage() {
   const activeConversation = conversations.find(c => c.id === activeId) ?? null
   const activeMessages = activeId ? messages[activeId] ?? [] : []
   const userName = user?.username ?? 'Resident'
-  const pincode = user?.primary_pincode ?? '400001'
+  const pincode = activePincode || user?.primary_pincode || '400001'
 
   const openUserProfile = (userId?: string, event?: React.MouseEvent) => {
     event?.stopPropagation()
@@ -181,14 +185,27 @@ export default function ChatsPage() {
   }
 
   return (
-    <div className="flex h-screen bg-white text-[#081234]">
-      <aside className="w-full flex-shrink-0 border-r border-[#E4E9F4] bg-white px-5 py-6 md:w-[360px]">
+    <div className="flex h-[100dvh] bg-white text-[#081234] md:h-screen">
+      <aside className={`${activeId ? 'hidden md:block' : 'block'} w-full flex-shrink-0 border-r border-[#E4E9F4] bg-white px-6 pb-28 pt-7 md:w-[360px] md:px-5 md:py-6`}>
+        <div className="mb-7 flex items-center justify-between md:hidden">
+          <PincodeSwitcher variant="mobile-topbar" />
+          <div className="flex items-center gap-4">
+            <NotificationBell />
+            <Link href="/profile" aria-label="Open profile">
+              <Avatar name={userName} src={user?.avatar_url} size={40} className="!rounded-full" />
+            </Link>
+          </div>
+        </div>
+
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-[30px] font-black tracking-[-0.045em]">Chats</h1>
             <p className="mt-1 text-[13px] font-semibold text-[#697391]">Personal conversations</p>
           </div>
-          <NotificationBell className="border border-[#D7DFF0] bg-white" iconSize={19} />
+          <button className="grid h-12 w-12 place-items-center rounded-full bg-[#075CFF] text-white shadow-[0_12px_26px_rgba(7,92,255,0.24)] md:hidden" aria-label="Start chat">
+            <Plus size={24} />
+          </button>
+          <NotificationBell className="hidden border border-[#D7DFF0] bg-white md:grid" iconSize={19} />
         </div>
 
         <div className="relative mb-5">
@@ -225,7 +242,7 @@ export default function ChatsPage() {
             const other = conversation.other_user
             const active = conversation.id === activeId
             return (
-              <div key={conversation.id} onClick={() => setActiveId(conversation.id)} className={`flex w-full cursor-pointer items-center gap-3 rounded-[10px] p-3 text-left transition-all ${active ? 'bg-[#EEF4FF]' : 'hover:bg-[#F7FAFF]'}`}>
+              <div key={conversation.id} onClick={() => setActiveId(conversation.id)} className={`flex w-full cursor-pointer items-center gap-4 rounded-[12px] border border-[#EDF1F8] bg-white p-4 text-left shadow-[0_10px_24px_rgba(30,56,104,0.04)] transition-all md:border-0 md:shadow-none ${active ? 'md:bg-[#EEF4FF]' : 'md:hover:bg-[#F7FAFF]'}`}>
                 <button type="button" onClick={(event) => openUserProfile(other?.id, event)} className="rounded-full focus:outline-none focus:ring-2 focus:ring-[#075CFF]" aria-label="Open user profile">
                   <Avatar name={other?.username ?? other?.phone ?? 'User'} src={other?.avatar_url} size={46} />
                 </button>
@@ -234,34 +251,41 @@ export default function ChatsPage() {
                     <button type="button" onClick={(event) => openUserProfile(other?.id, event)} className="min-w-0 truncate text-left text-[14px] font-black hover:text-[#075CFF]">{other?.username ?? other?.phone ?? 'User'}</button>
                     <span className="text-[11px] font-semibold text-[#697391]">{conversation.last_message ? timeAgo(conversation.last_message.created_at) : ''}</span>
                   </div>
-                  <p className="mt-1 truncate text-[12px] font-semibold text-[#697391]">{conversation.last_message?.content ?? 'No messages yet'}</p>
+                  <p className="mt-1 truncate text-[13px] font-semibold text-[#172143] md:text-[12px] md:text-[#697391]">{conversation.last_message?.content ?? 'No messages yet'}</p>
                 </div>
+                <ChevronDown size={18} className="-rotate-90 text-[#081234] md:hidden" />
               </div>
             )
           })}
         </div>
       </aside>
 
-      <section className="hidden min-w-0 flex-1 flex-col md:flex">
+      <section className={`${activeConversation ? 'fixed inset-0 z-[60] flex' : 'hidden'} min-w-0 flex-1 flex-col bg-white md:static md:flex`}>
         {activeConversation ? (
           <>
-            <header className="flex h-[72px] flex-shrink-0 items-center justify-between border-b border-[#E4E9F4] bg-white px-6">
+            <header className="flex h-[86px] flex-shrink-0 items-center justify-between bg-white px-6 md:h-[72px] md:border-b md:border-[#E4E9F4]">
               <div className="flex items-center gap-3">
+                <button onClick={() => setActiveId(null)} className="mr-2 grid h-10 w-10 place-items-center rounded-full text-[#081234] md:hidden" aria-label="Back to chats">
+                  <ArrowLeft size={26} />
+                </button>
                 <button type="button" onClick={() => openUserProfile(activeConversation.other_user?.id)} className="rounded-full focus:outline-none focus:ring-2 focus:ring-[#075CFF]" aria-label="Open user profile">
-                  <Avatar name={activeConversation.other_user?.username ?? activeConversation.other_user?.phone ?? 'User'} src={activeConversation.other_user?.avatar_url} size={42} />
+                  <Avatar name={activeConversation.other_user?.username ?? activeConversation.other_user?.phone ?? 'User'} src={activeConversation.other_user?.avatar_url} size={54} className="!rounded-[12px] md:!rounded-full" />
                 </button>
                 <div>
-                  <button type="button" onClick={() => openUserProfile(activeConversation.other_user?.id)} className="text-left text-[17px] font-black hover:text-[#075CFF]">{activeConversation.other_user?.username ?? activeConversation.other_user?.phone ?? 'User'}</button>
+                  <button type="button" onClick={() => openUserProfile(activeConversation.other_user?.id)} className="text-left text-[20px] font-black hover:text-[#075CFF] md:text-[17px]">{activeConversation.other_user?.username ?? activeConversation.other_user?.phone ?? 'User'}</button>
                   <p className="flex items-center gap-1 text-[12px] font-semibold text-[#697391]"><MapPin size={13} /> {activeConversation.other_user?.primary_pincode ?? pincode}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 text-[13px] font-black text-[#697391]">
+              <button className="grid h-10 w-10 place-items-center rounded-full text-[#081234] md:hidden" aria-label="Chat options">
+                <MoreVertical size={22} />
+              </button>
+              <div className="hidden items-center gap-3 text-[13px] font-black text-[#697391] md:flex">
                 {userName}
                 <ChevronDown size={16} />
               </div>
             </header>
 
-            <div className="min-h-0 flex-1 overflow-y-auto bg-[#FBFCFF] px-6 py-6">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-white px-6 py-6 md:bg-[#FBFCFF]">
               {messagesLoading ? (
                 <div className="flex h-full items-center justify-center"><Loader2 size={24} className="animate-spin text-[#075CFF]" /></div>
               ) : activeMessages.length === 0 ? (
@@ -276,7 +300,7 @@ export default function ChatsPage() {
                     const mine = message.sender_id === user?.id
                     return (
                       <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[68%] rounded-[14px] px-4 py-2.5 shadow-[0_10px_26px_rgba(30,56,104,0.08)] ${mine ? 'rounded-br-[4px] bg-[#075CFF] text-white' : 'rounded-bl-[4px] border border-[#DDE5F3] bg-white text-[#081234]'}`}>
+                        <div className={`max-w-[78%] rounded-[14px] px-4 py-2.5 shadow-[0_10px_26px_rgba(30,56,104,0.08)] md:max-w-[68%] ${mine ? 'rounded-br-[4px] bg-[#075CFF] text-white' : 'rounded-bl-[4px] border border-[#DDE5F3] bg-white text-[#081234]'}`}>
                           <p className="whitespace-pre-wrap text-[14px] font-semibold leading-relaxed">{message.is_deleted ? 'This message was deleted' : message.content}</p>
                           <p className={`mt-1 text-right text-[10px] font-bold ${mine ? 'text-white/70' : 'text-[#8B96B2]'}`}>{timeAgo(message.created_at)}</p>
                         </div>
@@ -288,7 +312,7 @@ export default function ChatsPage() {
               )}
             </div>
 
-            <form onSubmit={submit} className="flex flex-shrink-0 gap-3 border-t border-[#E4E9F4] bg-white p-4">
+            <form onSubmit={submit} className="flex flex-shrink-0 gap-3 border-t border-[#E4E9F4] bg-white p-6 md:p-4">
               <div ref={emojiRef} className="relative flex min-w-0 flex-1 items-center rounded-[12px] border border-[#D7DFF0] bg-white px-3 focus-within:border-[#075CFF]">
                 <input
                   ref={draftRef}

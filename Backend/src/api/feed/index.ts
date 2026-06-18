@@ -41,17 +41,17 @@ export async function feedRoutes(app: FastifyInstance) {
       `
       WITH viewer AS (
         SELECT u.*
+          , $6::text AS active_pincode
         FROM users u
         WHERE u.id = $1
       ),
       user_pins AS (
         SELECT DISTINCT unnest(
-          array_remove(ARRAY[u.primary_pincode, u.secondary_pincode]::text[], NULL)
+          ARRAY[(SELECT active_pincode FROM viewer)]
           || COALESCE(pm.neighbor_codes, '{}')
         ) AS pincode
-        FROM users u
-        LEFT JOIN pincode_meta pm ON pm.pincode = u.primary_pincode
-        WHERE u.id = $1
+        FROM viewer u
+        LEFT JOIN pincode_meta pm ON pm.pincode = u.active_pincode
       ),
       viewer_interests AS (
         SELECT unnest(COALESCE((SELECT interests FROM viewer), '{}')) AS interest
@@ -205,7 +205,7 @@ export async function feedRoutes(app: FastifyInstance) {
       ORDER BY ranking_score DESC, created_at DESC
       LIMIT $3 OFFSET $4
       `,
-      [request.user.id, category, limit + 1, offset, mode]
+      [request.user.id, category, limit + 1, offset, mode, request.user.active_pincode]
     );
 
     return reply.send({

@@ -25,8 +25,10 @@ import { Group, getCategoryColor } from '@/types'
 import { useAuth } from '@/hooks/useAuth'
 import Avatar from '@/components/shared/Avatar'
 import NotificationBell from '@/components/shared/NotificationBell'
+import PincodeSwitcher from '@/components/shared/PincodeSwitcher'
 import { formatCount } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import { useAuthStore } from '@/store/auth.store'
 
 const FILTERS = [
   { label: 'All', icon: Grid2X2 },
@@ -40,6 +42,7 @@ const FILTERS = [
 
 export default function GroupsPage() {
   const { user, loading: authLoading } = useAuth()
+  const { activePincode } = useAuthStore()
   const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
   const [joining, setJoining] = useState<string | null>(null)
@@ -95,19 +98,16 @@ export default function GroupsPage() {
     )
   }
 
-  const pincode = user?.primary_pincode ?? '400001'
+  const pincode = activePincode || user?.primary_pincode || '400001'
   const userName = user?.username ?? 'Sujal'
 
   return (
     <div className="min-h-screen bg-[#FBFCFF] font-body text-[#081234]">
+      <MobileGroupsTopBar userName={userName} avatarUrl={user?.avatar_url} />
       <div className="hidden xl:block">
         <header className="sticky top-0 z-30 border-b border-[#E4E9F4] bg-white/90 backdrop-blur-xl">
           <div className="mx-auto flex h-[80px] max-w-[1220px] items-center gap-8 px-9">
-            <button className="flex h-10 items-center gap-3 rounded-[8px] border border-[#D7DFF0] bg-white px-3.5 text-[15px] font-black text-[#081234] shadow-[0_10px_30px_rgba(40,70,120,0.06)]">
-              <MapPin size={20} className="text-[#075CFF]" strokeWidth={2.4} />
-              {pincode}
-              <ChevronDown size={16} className="text-[#697391]" />
-            </button>
+            <PincodeSwitcher variant="desktop-header" />
 
             <div className="mx-auto flex h-10 w-[550px] items-center rounded-[8px] border border-[#D7DFF0] bg-white px-4 shadow-[0_10px_30px_rgba(40,70,120,0.06)]">
               <Search size={20} className="mr-3 text-[#697391]" />
@@ -125,14 +125,14 @@ export default function GroupsPage() {
         </header>
       </div>
 
-      <div className="mx-auto grid max-w-[1220px] grid-cols-1 gap-8 px-4 pt-7 xl:grid-cols-[minmax(0,1fr)_272px] xl:px-9">
+      <div className="mx-auto grid max-w-[1220px] grid-cols-1 gap-8 px-6 pt-4 xl:grid-cols-[minmax(0,1fr)_272px] xl:px-9 xl:pt-7">
         <main className="min-w-0">
           <section className="mb-5 flex items-start justify-between gap-4">
             <div>
               <h1 className="text-[34px] font-black leading-none tracking-[-0.045em] text-[#081234]">Groups</h1>
               <p className="mt-3 text-[15px] font-semibold text-[#697391]">Find and join communities in your area</p>
             </div>
-            <Link href="/create?mode=group" className="hidden h-12 items-center gap-3 rounded-[8px] bg-[#075CFF] px-7 text-[15px] font-black text-white shadow-[0_16px_34px_rgba(7,92,255,0.25)] transition-transform active:scale-95 xl:flex">
+            <Link href="/create?mode=group" className="flex h-12 items-center gap-3 rounded-[8px] bg-[#075CFF] px-5 text-[14px] font-black text-white shadow-[0_16px_34px_rgba(7,92,255,0.25)] transition-transform active:scale-95 xl:px-7 xl:text-[15px]">
               <Plus size={20} />
               Create Group
             </Link>
@@ -143,13 +143,13 @@ export default function GroupsPage() {
               <Search size={20} className="mr-3 text-[#697391]" />
               <input className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-[#081234] outline-none placeholder:text-[#8B96B2]" placeholder="Search groups by name or category" />
             </div>
-            <button className="flex h-12 items-center gap-3 rounded-[9px] border border-[#D7DFF0] bg-white px-6 text-[14px] font-black text-[#081234] shadow-[0_10px_30px_rgba(40,70,120,0.04)]">
+            <button className="hidden h-12 items-center gap-3 rounded-[9px] border border-[#D7DFF0] bg-white px-6 text-[14px] font-black text-[#081234] shadow-[0_10px_30px_rgba(40,70,120,0.04)] xl:flex">
               <SlidersHorizontal size={19} />
               Filters
             </button>
           </section>
 
-          <section className="mb-7 overflow-x-auto scrollbar-none">
+          <section className="mb-7 hidden overflow-x-auto scrollbar-none xl:block">
             <div className="flex min-w-max gap-4">
               {FILTERS.map((item, index) => {
                 const Icon = item.icon
@@ -168,9 +168,9 @@ export default function GroupsPage() {
           {myGroups.length === 0 ? (
             <EmptyState title="No groups yet" body="Join community conversations by interacting with posts in your feed, or create your first group." actionHref="/create?mode=group" action="Create Group" />
           ) : (
-            <div className="mb-7 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mb-7 overflow-hidden rounded-[12px] border border-[#E1E7F3] bg-white shadow-[0_12px_28px_rgba(30,56,104,0.06)] md:grid-cols-2 xl:grid xl:gap-5 xl:overflow-visible xl:rounded-none xl:border-0 xl:bg-transparent xl:shadow-none xl:grid-cols-4">
               {myGroups.map(g => (
-                <article key={g.id} className="relative rounded-[12px] border border-[#DDE5F3] bg-white p-5 text-center shadow-[0_18px_44px_rgba(30,56,104,0.07)] transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_52px_rgba(30,56,104,0.10)]">
+                <article key={g.id} className="relative flex items-center gap-4 border-b border-[#EDF1F8] bg-white p-4 text-left last:border-b-0 xl:block xl:rounded-[12px] xl:border xl:border-[#DDE5F3] xl:p-5 xl:text-center xl:shadow-[0_18px_44px_rgba(30,56,104,0.07)] xl:transition-all xl:hover:-translate-y-0.5 xl:hover:shadow-[0_22px_52px_rgba(30,56,104,0.10)]">
                   <div className="relative mx-auto w-fit">
                     <button
                       type="button"
@@ -178,7 +178,7 @@ export default function GroupsPage() {
                       className="rounded-full transition-transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#C9D6FF]"
                       aria-label={`Open ${g.name} details`}
                     >
-                      <Avatar name={g.name} src={g.cover_image_url} size={74} className="!rounded-full" />
+                      <Avatar name={g.name} src={g.cover_image_url} size={74} className="!rounded-[10px] xl:!rounded-full" />
                     </button>
                     <span className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full border-2 border-white bg-[#18B957]" />
                     {(g.unread_count ?? 0) > 0 && (
@@ -187,12 +187,15 @@ export default function GroupsPage() {
                       </span>
                     )}
                   </div>
-                  <h3 className="mt-4 truncate text-[16px] font-black">{g.name}</h3>
-                  <p className="mt-2 text-[12px] font-semibold text-[#697391]">{formatCount(g.member_count)} members</p>
+                  <div className="min-w-0 flex-1 xl:contents">
+                  <h3 className="truncate text-[16px] font-black xl:mt-4">{g.name}</h3>
+                  <p className="mt-2 text-[13px] font-semibold text-[#697391]">{formatCount(g.member_count)} members</p>
+                  <p className="mt-2 flex items-center gap-1 text-[13px] font-semibold text-[#697391] xl:hidden"><MapPin size={14} /> {g.pincode}</p>
+                  </div>
                   <button
                     type="button"
                     onClick={() => openGroup(g)}
-                    className="mt-4 inline-flex rounded-[6px] bg-[#EAF2FF] px-3 py-1.5 text-[12px] font-black text-[#075CFF] transition-colors hover:bg-[#DDE8FF]"
+                    className="ml-auto inline-flex rounded-[8px] border border-[#C9D6FF] bg-white px-4 py-3 text-[12px] font-black text-[#075CFF] transition-colors hover:bg-[#DDE8FF] xl:ml-0 xl:mt-4 xl:rounded-[6px] xl:border-0 xl:bg-[#EAF2FF] xl:px-3 xl:py-1.5"
                   >
                     Open Group
                   </button>
@@ -201,7 +204,14 @@ export default function GroupsPage() {
             </div>
           )}
 
-          <SectionTitle title="Discover Groups Near You" action="See all" />
+          <div className="mb-8 rounded-[12px] bg-[#F3F7FF] p-7 text-center xl:hidden">
+            <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-white text-[#075CFF]"><Users size={24} /></div>
+            <h2 className="mt-4 text-[16px] font-black">Can&apos;t find the right community?</h2>
+            <p className="mt-2 text-[13px] font-semibold leading-relaxed text-[#697391]">Create your own group and bring your neighbourhood together.</p>
+            <Link href="/create?mode=group" className="mt-4 inline-flex rounded-[8px] border border-[#C9D6FF] bg-white px-8 py-3 text-[13px] font-black text-[#075CFF]">Create Group</Link>
+          </div>
+
+          <SectionTitle title="Suggested for You" action="See all" />
           <div className="overflow-hidden rounded-[14px] border border-[#DDE5F3] bg-white shadow-[0_18px_44px_rgba(30,56,104,0.07)]">
             {discoverGroups.length === 0 ? (
               <EmptyState title="No groups to discover yet" body="Groups you have not joined will appear here when available." compact />
@@ -306,4 +316,20 @@ function labelCategory(category: string) {
   if (category === 'Marketplace') return 'Buy/Sell'
   if (category === 'Pets') return 'Pet Care'
   return category
+}
+
+function MobileGroupsTopBar({ userName, avatarUrl }: { userName: string; avatarUrl?: string | null }) {
+  return (
+    <header className="sticky top-0 z-30 bg-[#FBFCFF]/95 px-6 pb-4 pt-7 backdrop-blur-xl xl:hidden">
+      <div className="flex items-center justify-between">
+        <PincodeSwitcher variant="mobile-topbar" />
+        <div className="flex items-center gap-4">
+          <NotificationBell />
+          <Link href="/profile" aria-label="Open profile">
+            <Avatar name={userName} src={avatarUrl} size={40} className="!rounded-full" />
+          </Link>
+        </div>
+      </div>
+    </header>
+  )
 }

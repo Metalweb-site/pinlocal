@@ -97,7 +97,7 @@ Only if you also want to delete pincode master data:
   });
 
   console.log(resetAll
-    ? '[Reset] Database is fully clean, including pincode data. Run npm run seed or import pincodes before production testing.'
+    ? '[Reset] Database is fully clean, including pincode data. Run npm run seed for auto-detect, npm run import:pincodes -- --file <dataset>, or npm run seed:sample before testing.'
     : '[Reset] App data is clean. Pincode master data was kept.'
   );
 }

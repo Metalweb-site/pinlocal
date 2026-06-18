@@ -13,6 +13,16 @@ const PatchBody = z.object({
   cover_image_url:   z.string().url().nullable().optional(),
   bio:               z.string().max(240).nullable().optional(),
   location_text:     z.string().max(120).nullable().optional(),
+  locality_name:     z.string().max(120).nullable().optional(),
+  locality_user_edited: z.boolean().optional(),
+  locality_confirmed: z.boolean().optional(),
+  city:              z.string().max(120).nullable().optional(),
+  district:          z.string().max(120).nullable().optional(),
+  state:             z.string().max(120).nullable().optional(),
+  latitude:          z.number().min(6).max(38).nullable().optional(),
+  longitude:         z.number().min(68).max(98).nullable().optional(),
+  location_source:   z.enum(['gps', 'manual', 'pincode']).nullable().optional(),
+  location_accuracy_meters: z.number().int().min(0).max(50000).nullable().optional(),
   website_url:       z.string().url().nullable().optional(),
   primary_pincode:   z.string().regex(/^[1-9][0-9]{5}$/, 'Enter a valid 6-digit Indian pincode').optional(),
   secondary_pincode: z.string().regex(/^[1-9][0-9]{5}$/, 'Enter a valid 6-digit Indian pincode').nullable().optional(),
@@ -31,6 +41,45 @@ const SearchUsersQuery = z.object({
 const PasscodeBody = z.object({
   passcode: z.string().regex(/^[0-9]{4,8}$/, 'Passcode must be 4 to 8 digits'),
 });
+
+type ReverseGeocodeLocation = {
+  pincode: string | null;
+  locality_name: string | null;
+  city: string | null;
+  district: string | null;
+  state: string | null;
+  lat: number;
+  lng: number;
+  display_name: string | null;
+  source: 'nominatim' | 'pincode_meta' | 'pincode_consensus';
+  cached?: boolean;
+};
+
+type LocalityCandidate = {
+  normalized: string;
+  display: string;
+  weight: number;
+  userCount: number;
+};
+
+type PincodeLocalityDefault = {
+  pincode: string;
+  canonical_locality: string;
+  normalized_locality: string;
+  confidence_score: string | number;
+  support_count: number;
+  weighted_score: number;
+  total_contributors: number;
+  runner_up_locality: string | null;
+  runner_up_weight: number;
+  status: 'pending' | 'confirmed';
+};
+
+const LOCALITY_MIN_CONTRIBUTORS = Number(process.env.LOCALITY_MIN_CONTRIBUTORS ?? '10');
+const LOCALITY_MIN_WIN_SHARE = Number(process.env.LOCALITY_MIN_WIN_SHARE ?? '0.6');
+const LOCALITY_MIN_LEAD_SHARE = Number(process.env.LOCALITY_MIN_LEAD_SHARE ?? '0.2');
+const LOCALITY_MIN_LEAD_WEIGHT = Number(process.env.LOCALITY_MIN_LEAD_WEIGHT ?? '3');
+const LOCALITY_CONSENSUS_MAX_DISTANCE_KM = Number(process.env.LOCALITY_CONSENSUS_MAX_DISTANCE_KM ?? '6');
 
 const POST_SELECT = `
   p.*,
@@ -96,6 +145,210 @@ function extractIndianPincode(value: unknown): string | null {
   return match?.[0] ?? null;
 }
 
+function cleanLocationPart(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const clean = value.trim().replace(/\s{2,}/g, ' ');
+  return clean || null;
+}
+
+function normalizeLocalityName(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const clean = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+    .trim();
+  return clean || null;
+}
+
+function uniqueParts(parts: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const part of parts) {
+    if (!part) continue;
+    const key = part.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(part.trim());
+  }
+
+  return result;
+}
+
+function buildLocationText(location: {
+  locality_name?: string | null;
+  city?: string | null;
+  district?: string | null;
+  state?: string | null;
+}): string | null {
+  const parts = uniqueParts([location.locality_name, location.city, location.district, location.state]).slice(0, 3);
+  return parts.length > 0 ? parts.join(', ') : null;
+}
+
+function locationCacheKey(lat: number, lng: number): string {
+  return `${lat.toFixed(3)},${lng.toFixed(3)}`;
+}
+
+function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const earthRadius = 6371;
+  const dLat = toRadians(lat2 - lat1);
+  const dLng = toRadians(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * earthRadius * Math.asin(Math.sqrt(a));
+}
+
+async function getPincodeMeta(pincode: string) {
+  return queryOne<{ pincode: string; city: string | null; district: string | null; state: string | null; lat: number | null; lng: number | null }>(
+    `SELECT pincode, city, district, state, lat, lng FROM pincode_meta WHERE pincode = $1`,
+    [pincode]
+  );
+}
+
+async function nearestPincodeByCoordinates(lat: number, lng: number) {
+  return queryOne<{ pincode: string; city: string | null; district: string | null; state: string | null; lat: number | null; lng: number | null }>(
+    `
+    SELECT pincode, city, district, state, lat, lng
+    FROM pincode_meta
+    WHERE lat IS NOT NULL
+      AND lng IS NOT NULL
+    ORDER BY POWER(lat - $1, 2) + POWER(lng - $2, 2)
+    LIMIT 1
+    `,
+    [lat, lng]
+  );
+}
+
+function localityWeight(row: Pick<User, 'locality_user_edited' | 'locality_confirmed'>): number {
+  if (row.locality_user_edited) return 4;
+  if (row.locality_confirmed) return 2;
+  return 1;
+}
+
+async function getPincodeLocalityDefault(
+  pincode: string,
+  status: 'pending' | 'confirmed' | null = 'confirmed'
+) {
+  return queryOne<PincodeLocalityDefault>(
+    `
+    SELECT *
+    FROM pincode_locality_defaults
+    WHERE pincode = $1
+      AND ($2::text IS NULL OR status = $2)
+    `,
+    [pincode, status]
+  );
+}
+
+async function recomputePincodeLocalityConsensus(pincode: string): Promise<void> {
+  if (!/^[1-9][0-9]{5}$/.test(pincode)) return;
+
+  const rows = await query<Pick<User, 'locality_name' | 'locality_user_edited' | 'locality_confirmed'>>(
+    `
+    SELECT locality_name, locality_user_edited, locality_confirmed
+    FROM users
+    WHERE primary_pincode = $1
+      AND COALESCE(TRIM(locality_name), '') <> ''
+    `,
+    [pincode]
+  );
+
+  if (rows.length === 0) {
+    await query(`DELETE FROM pincode_locality_defaults WHERE pincode = $1`, [pincode]);
+    return;
+  }
+
+  const aggregate = new Map<string, { weight: number; userCount: number; displays: Map<string, number> }>();
+
+  for (const row of rows) {
+    const display = cleanLocationPart(row.locality_name);
+    const normalized = normalizeLocalityName(display);
+    if (!display || !normalized) continue;
+
+    const bucket = aggregate.get(normalized) ?? { weight: 0, userCount: 0, displays: new Map<string, number>() };
+    bucket.weight += localityWeight(row);
+    bucket.userCount += 1;
+    bucket.displays.set(display, (bucket.displays.get(display) ?? 0) + 1);
+    aggregate.set(normalized, bucket);
+  }
+
+  const candidates: LocalityCandidate[] = Array.from(aggregate.entries()).map(([normalized, value]) => {
+    const display = Array.from(value.displays.entries())
+      .sort((a, b) => b[1] - a[1] || b[0].length - a[0].length || a[0].localeCompare(b[0]))[0]?.[0] ?? normalized;
+
+    return {
+      normalized,
+      display,
+      weight: value.weight,
+      userCount: value.userCount,
+    };
+  }).sort((a, b) => b.weight - a.weight || b.userCount - a.userCount || a.display.localeCompare(b.display));
+
+  if (candidates.length === 0) {
+    await query(`DELETE FROM pincode_locality_defaults WHERE pincode = $1`, [pincode]);
+    return;
+  }
+
+  const winner = candidates[0];
+  const runnerUp = candidates[1] ?? null;
+  const totalWeight = candidates.reduce((sum, candidate) => sum + candidate.weight, 0);
+  const totalContributors = rows.length;
+  const winnerShare = totalWeight > 0 ? winner.weight / totalWeight : 0;
+  const leadWeight = winner.weight - (runnerUp?.weight ?? 0);
+  const leadShare = totalWeight > 0 ? leadWeight / totalWeight : 1;
+  const status: 'pending' | 'confirmed' =
+    totalContributors >= LOCALITY_MIN_CONTRIBUTORS &&
+    winnerShare >= LOCALITY_MIN_WIN_SHARE &&
+    leadWeight >= LOCALITY_MIN_LEAD_WEIGHT &&
+    leadShare >= LOCALITY_MIN_LEAD_SHARE
+      ? 'confirmed'
+      : 'pending';
+
+  await query(
+    `
+    INSERT INTO pincode_locality_defaults (
+      pincode,
+      canonical_locality,
+      normalized_locality,
+      confidence_score,
+      support_count,
+      weighted_score,
+      total_contributors,
+      runner_up_locality,
+      runner_up_weight,
+      status,
+      updated_at
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+    ON CONFLICT (pincode) DO UPDATE
+    SET canonical_locality = EXCLUDED.canonical_locality,
+        normalized_locality = EXCLUDED.normalized_locality,
+        confidence_score = EXCLUDED.confidence_score,
+        support_count = EXCLUDED.support_count,
+        weighted_score = EXCLUDED.weighted_score,
+        total_contributors = EXCLUDED.total_contributors,
+        runner_up_locality = EXCLUDED.runner_up_locality,
+        runner_up_weight = EXCLUDED.runner_up_weight,
+        status = EXCLUDED.status,
+        updated_at = NOW()
+    `,
+    [
+      pincode,
+      winner.display,
+      winner.normalized,
+      Number((winnerShare * 100).toFixed(2)),
+      winner.userCount,
+      winner.weight,
+      totalContributors,
+      runnerUp?.display ?? null,
+      runnerUp?.weight ?? 0,
+      status,
+    ]
+  );
+}
+
 function publicUser(user: User) {
   const { passcode_hash: _passcodeHash, ...safeUser } = user;
   return { ...safeUser, has_passcode: Boolean(user.passcode_hash) };
@@ -107,14 +360,98 @@ function hashPasscode(passcode: string): string {
   return `${salt}:${hash}`;
 }
 
-async function reverseGeocodePincode(lat: number, lng: number): Promise<string | null> {
+async function reverseGeocodeLocation(lat: number, lng: number): Promise<ReverseGeocodeLocation | null> {
+  const roundedLat = Number(lat.toFixed(6));
+  const roundedLng = Number(lng.toFixed(6));
+  const cacheKey = locationCacheKey(roundedLat, roundedLng);
+
+  const cached = await queryOne<{
+    pincode: string | null;
+    locality_name: string | null;
+    city: string | null;
+    district: string | null;
+    state: string | null;
+    display_name: string | null;
+    source: 'nominatim' | 'pincode_meta' | 'pincode_consensus';
+  }>(
+    `
+    SELECT pincode, locality_name, city, district, state, display_name, source
+    FROM reverse_geocode_cache
+    WHERE cache_key = $1
+      AND expires_at > NOW()
+    `,
+    [cacheKey]
+  );
+
+  if (cached) {
+    return {
+      ...cached,
+      lat: roundedLat,
+      lng: roundedLng,
+      cached: true,
+    };
+  }
+
+  const nearest = await nearestPincodeByCoordinates(roundedLat, roundedLng);
+  const nearestDistance =
+    nearest?.lat !== null && nearest?.lat !== undefined && nearest?.lng !== null && nearest?.lng !== undefined
+      ? distanceKm(roundedLat, roundedLng, Number(nearest.lat), Number(nearest.lng))
+      : Number.POSITIVE_INFINITY;
+
+  if (nearest?.pincode && nearestDistance <= LOCALITY_CONSENSUS_MAX_DISTANCE_KM) {
+    const confirmedDefault = await getPincodeLocalityDefault(nearest.pincode, 'confirmed');
+    if (confirmedDefault) {
+      const location: ReverseGeocodeLocation = {
+        pincode: nearest.pincode,
+        locality_name: confirmedDefault.canonical_locality,
+        city: nearest.city,
+        district: nearest.district,
+        state: nearest.state,
+        lat: roundedLat,
+        lng: roundedLng,
+        display_name: buildLocationText({
+          locality_name: confirmedDefault.canonical_locality,
+          city: nearest.city,
+          district: nearest.district,
+          state: nearest.state,
+        }),
+        source: 'pincode_consensus',
+        cached: false,
+      };
+
+      await query(
+        `
+        INSERT INTO reverse_geocode_cache (
+          cache_key, lat, lng, pincode, locality_name, city, district, state, display_name, source, expires_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW() + INTERVAL '90 days', NOW())
+        ON CONFLICT (cache_key) DO UPDATE
+        SET lat = EXCLUDED.lat,
+            lng = EXCLUDED.lng,
+            pincode = EXCLUDED.pincode,
+            locality_name = EXCLUDED.locality_name,
+            city = EXCLUDED.city,
+            district = EXCLUDED.district,
+            state = EXCLUDED.state,
+            display_name = EXCLUDED.display_name,
+            source = EXCLUDED.source,
+            expires_at = EXCLUDED.expires_at,
+            updated_at = NOW()
+        `,
+        [cacheKey, roundedLat, roundedLng, location.pincode, location.locality_name, location.city, location.district, location.state, location.display_name, 'pincode_consensus']
+      );
+
+      return location;
+    }
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
     const url = new URL('https://nominatim.openstreetmap.org/reverse');
-    url.searchParams.set('lat', String(lat));
-    url.searchParams.set('lon', String(lng));
+    url.searchParams.set('lat', String(roundedLat));
+    url.searchParams.set('lon', String(roundedLng));
     url.searchParams.set('format', 'jsonv2');
     url.searchParams.set('addressdetails', '1');
     url.searchParams.set('zoom', '18');
@@ -129,14 +466,92 @@ async function reverseGeocodePincode(lat: number, lng: number): Promise<string |
     if (!res.ok) return null;
 
     const data = await res.json() as {
-      address?: { postcode?: string; country_code?: string };
+      address?: Record<string, string | undefined> & { postcode?: string; country_code?: string };
       display_name?: string;
     };
+
     if (data.address?.country_code && data.address.country_code.toLowerCase() !== 'in') return null;
 
-    return extractIndianPincode(data.address?.postcode) ?? extractIndianPincode(data.display_name);
+    const address = data.address ?? {};
+    let pincode = extractIndianPincode(address.postcode) ?? extractIndianPincode(data.display_name);
+    const validPincode = pincode ? await getPincodeMeta(pincode) : null;
+    if (!validPincode) {
+      pincode = nearest?.pincode ?? pincode ?? null;
+    }
+
+    const meta = pincode ? await getPincodeMeta(pincode) : null;
+    const confirmedDefault = pincode ? await getPincodeLocalityDefault(pincode, 'confirmed') : null;
+    const location: ReverseGeocodeLocation = {
+      pincode,
+      locality_name: cleanLocationPart(
+        confirmedDefault?.canonical_locality ??
+        address.neighbourhood ??
+        address.suburb ??
+        address.quarter ??
+        address.city_district ??
+        address.residential ??
+        address.hamlet ??
+        address.village
+      ) ?? meta?.city ?? null,
+      city: cleanLocationPart(
+        address.city ??
+        address.town ??
+        address.municipality ??
+        address.county
+      ) ?? meta?.city ?? null,
+      district: cleanLocationPart(
+        address.state_district ??
+        address.county
+      ) ?? meta?.district ?? null,
+      state: cleanLocationPart(address.state) ?? meta?.state ?? null,
+      lat: roundedLat,
+      lng: roundedLng,
+      display_name: cleanLocationPart(data.display_name),
+      source: validPincode ? 'nominatim' : 'pincode_meta',
+      cached: false,
+    };
+
+    await query(
+      `
+      INSERT INTO reverse_geocode_cache (
+        cache_key, lat, lng, pincode, locality_name, city, district, state, display_name, source, expires_at, updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW() + INTERVAL '90 days', NOW())
+      ON CONFLICT (cache_key) DO UPDATE
+      SET lat = EXCLUDED.lat,
+          lng = EXCLUDED.lng,
+          pincode = EXCLUDED.pincode,
+          locality_name = EXCLUDED.locality_name,
+          city = EXCLUDED.city,
+          district = EXCLUDED.district,
+          state = EXCLUDED.state,
+          display_name = EXCLUDED.display_name,
+          source = EXCLUDED.source,
+          expires_at = EXCLUDED.expires_at,
+          updated_at = NOW()
+      `,
+      [cacheKey, roundedLat, roundedLng, location.pincode, location.locality_name, location.city, location.district, location.state, location.display_name, location.source]
+    );
+
+    return location;
   } catch {
-    return null;
+    const nearest = await nearestPincodeByCoordinates(roundedLat, roundedLng);
+    if (!nearest) return null;
+
+    const confirmedDefault = await getPincodeLocalityDefault(nearest.pincode, 'confirmed');
+
+    return {
+      pincode: nearest.pincode,
+      locality_name: confirmedDefault?.canonical_locality ?? nearest.city,
+      city: nearest.city,
+      district: nearest.district,
+      state: nearest.state,
+      lat: roundedLat,
+      lng: roundedLng,
+      display_name: null,
+      source: 'pincode_meta',
+      cached: false,
+    };
   } finally {
     clearTimeout(timeout);
   }
@@ -172,8 +587,8 @@ export async function userRoutes(app: FastifyInstance) {
       return badRequest(reply, 'invalid_location', 'Location must be inside India');
     }
 
-    const pincode = await reverseGeocodePincode(parsed.data.lat, parsed.data.lng);
-    if (!pincode) {
+    const location = await reverseGeocodeLocation(parsed.data.lat, parsed.data.lng);
+    if (!location?.pincode) {
       return reply.status(404).send({
         error: 'pincode_not_found',
         message: 'Could not detect pincode for this location',
@@ -181,7 +596,22 @@ export async function userRoutes(app: FastifyInstance) {
       });
     }
 
-    return reply.send({ pincode });
+    return reply.send({
+      pincode: location.pincode,
+      location: {
+        pincode: location.pincode,
+        locality_name: location.locality_name,
+        city: location.city,
+        district: location.district,
+        state: location.state,
+        location_text: buildLocationText(location),
+        lat: location.lat,
+        lng: location.lng,
+        source: location.source,
+        cached: Boolean(location.cached),
+        display_name: location.display_name,
+      },
+    });
   });
 
   app.get('/badges', async (request, reply) => {
@@ -358,14 +788,18 @@ export async function userRoutes(app: FastifyInstance) {
           u.username ILIKE $2
           OR u.phone ILIKE $2
           OR u.primary_pincode ILIKE $2
+          OR COALESCE(u.secondary_pincode, '') ILIKE $2
         )
       ORDER BY
-        (u.primary_pincode = (SELECT primary_pincode FROM users WHERE id = $1)) DESC,
+        CASE
+          WHEN $3::text IN (u.primary_pincode, COALESCE(u.secondary_pincode, '')) THEN 0
+          ELSE 1
+        END,
         u.username ASC NULLS LAST,
         u.created_at DESC
       LIMIT 20
       `,
-      [request.user.id, `%${search}%`]
+      [request.user.id, `%${search}%`, request.user.active_pincode]
     );
 
     return reply.send({ users });
@@ -689,6 +1123,31 @@ export async function userRoutes(app: FastifyInstance) {
     }
 
     const data = result.data;
+    const localityProvidedByClient = Object.prototype.hasOwnProperty.call(data, 'locality_name');
+    const currentUser = await queryOne<User>('SELECT * FROM users WHERE id = $1', [request.user.id]);
+    if (!currentUser) return notFound(reply, 'User not found');
+
+    if (data.primary_pincode || data.secondary_pincode !== undefined) {
+      const nextPrimary = data.primary_pincode ?? request.user.primary_pincode;
+      const nextSecondary = data.secondary_pincode === undefined ? request.user.secondary_pincode : data.secondary_pincode;
+
+      if (nextSecondary && nextSecondary === nextPrimary) {
+        return badRequest(reply, 'duplicate_pincode', 'Secondary pincode must be different from your primary pincode');
+      }
+
+      const toValidate = [data.primary_pincode, data.secondary_pincode].filter((value): value is string => Boolean(value));
+      if (toValidate.length > 0) {
+        const validRows = await query<{ pincode: string }>(
+          `SELECT pincode FROM pincode_meta WHERE pincode = ANY($1::text[])`,
+          [toValidate]
+        );
+        const validSet = new Set(validRows.map(row => row.pincode));
+        const invalid = toValidate.find(code => !validSet.has(code));
+        if (invalid) {
+          return badRequest(reply, 'invalid_pincode', 'Enter a valid 6-digit Indian pincode');
+        }
+      }
+    }
 
     // Username uniqueness
     if (data.username) {
@@ -699,7 +1158,69 @@ export async function userRoutes(app: FastifyInstance) {
       if (taken) return reply.status(409).send({ error: 'username_taken', message: 'Username already taken', statusCode: 409 });
     }
 
-    const fields = ['username', 'avatar_url', 'cover_image_url', 'bio', 'location_text', 'website_url', 'primary_pincode', 'secondary_pincode', 'interests'] as const;
+    if (data.primary_pincode && !data.city && !data.district && !data.state) {
+      const canonical = await getPincodeLocalityDefault(data.primary_pincode, 'confirmed');
+      const meta = await getPincodeMeta(data.primary_pincode);
+      if (canonical) {
+        data.locality_name = data.locality_name ?? canonical.canonical_locality;
+        data.locality_confirmed = data.locality_confirmed ?? false;
+        data.locality_user_edited = data.locality_user_edited ?? false;
+        data.location_text = data.location_text ?? buildLocationText({
+          locality_name: canonical.canonical_locality,
+          city: meta?.city ?? null,
+          district: meta?.district ?? null,
+          state: meta?.state ?? null,
+        });
+      }
+      if (meta) {
+        data.city = meta.city;
+        data.district = meta.district;
+        data.state = meta.state;
+        data.location_source = data.location_source ?? 'pincode';
+      }
+    }
+
+    if ((data.locality_name || data.city || data.district || data.state) && !data.location_text) {
+      data.location_text = buildLocationText(data);
+    }
+
+    if (data.locality_name !== undefined) {
+      const nextLocality = cleanLocationPart(data.locality_name);
+      const previousLocality = cleanLocationPart(currentUser.locality_name ?? currentUser.location_text ?? null);
+      const wasEdited = normalizeLocalityName(nextLocality) !== normalizeLocalityName(previousLocality);
+
+      data.locality_name = nextLocality;
+      data.locality_confirmed = data.locality_confirmed ?? (localityProvidedByClient ? Boolean(nextLocality) : false);
+      data.locality_user_edited = data.locality_user_edited ?? (localityProvidedByClient ? wasEdited : false);
+      if (!data.location_text && nextLocality) {
+        data.location_text = nextLocality;
+      }
+      if (!data.location_source && localityProvidedByClient && wasEdited) {
+        data.location_source = 'manual';
+      }
+    }
+
+    const fields = [
+      'username',
+      'avatar_url',
+      'cover_image_url',
+      'bio',
+      'location_text',
+      'locality_name',
+      'locality_user_edited',
+      'locality_confirmed',
+      'city',
+      'district',
+      'state',
+      'latitude',
+      'longitude',
+      'location_source',
+      'location_accuracy_meters',
+      'website_url',
+      'primary_pincode',
+      'secondary_pincode',
+      'interests',
+    ] as const;
     const setClauses: string[] = [];
     const values: unknown[] = [];
     let idx = 1;
@@ -712,8 +1233,7 @@ export async function userRoutes(app: FastifyInstance) {
     }
 
     if (setClauses.length === 0) {
-      const user = await queryOne<User>('SELECT * FROM users WHERE id = $1', [request.user.id]);
-      return reply.send({ user: user ? publicUser(user) : user });
+      return reply.send({ user: publicUser(currentUser) });
     }
 
     values.push(request.user.id);
@@ -721,6 +1241,22 @@ export async function userRoutes(app: FastifyInstance) {
       `UPDATE users SET ${setClauses.join(', ')} WHERE id = $${idx} RETURNING *`,
       values
     );
+
+    const shouldRecomputeConsensus =
+      'primary_pincode' in data ||
+      'locality_name' in data ||
+      'locality_user_edited' in data ||
+      'locality_confirmed' in data;
+
+    if (user && shouldRecomputeConsensus) {
+      const pincodesToRefresh = new Set<string>();
+      if (currentUser.primary_pincode && currentUser.primary_pincode !== '000000') pincodesToRefresh.add(currentUser.primary_pincode);
+      if (user.primary_pincode && user.primary_pincode !== '000000') pincodesToRefresh.add(user.primary_pincode);
+      for (const pincode of pincodesToRefresh) {
+        await recomputePincodeLocalityConsensus(pincode);
+      }
+    }
+
     return reply.send({ user: user ? publicUser(user) : user });
   });
 }

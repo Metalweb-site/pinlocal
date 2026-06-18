@@ -142,21 +142,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="mt-auto space-y-6">
-            <div className="rounded-[12px] border border-[#E1E7F3] bg-white p-4 shadow-[0_18px_46px_rgba(39,71,124,0.07)]">
-              <p className="text-[12px] font-semibold text-[#697391]">Your Pincode</p>
-              <div className="mt-3 flex items-center gap-3">
-                <MapPin size={20} className="text-[#075CFF]" />
-                <span className="text-[18px] font-black text-[#081234]">{user?.primary_pincode ?? '400001'}</span>
-                <button className="ml-auto text-[12px] font-black text-[#075CFF]">Change</button>
-              </div>
-              <div className="mt-5 flex items-end justify-between gap-3">
-                <p className="text-[12px] font-medium leading-relaxed text-[#697391]">
-                  Expanding to nearby areas<br />(1.5 km radius)
-                </p>
-                <span className="grid h-4 w-4 place-items-center rounded-full border border-[#AEB8CE] text-[10px] font-bold text-[#697391]">i</span>
-              </div>
-            </div>
-
             <div className="relative overflow-hidden rounded-[12px] border border-[#E1E7F3] bg-[#F7FAFF] p-4 shadow-[0_18px_46px_rgba(39,71,124,0.07)]">
               <p className="text-[15px] font-black text-[#081234]">Invite your neighbours!</p>
               <p className="mt-3 max-w-[150px] text-[14px] font-medium leading-relaxed text-[#697391]">
@@ -180,7 +165,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <header className="fixed left-0 right-0 top-0 z-40 border-b border-[#E4E9F4] bg-white/95 px-4 py-3 backdrop-blur-xl xl:hidden">
+      <header className="fixed left-0 right-0 top-0 z-40 hidden border-b border-[#E4E9F4] bg-white/95 px-4 py-3 backdrop-blur-xl xl:hidden">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
           <Link href="/feed" className="flex items-center gap-2 font-body text-[20px] font-black uppercase leading-none tracking-[-0.04em] text-[#081234]">
             <Grid3X3 size={22} className="text-[#075CFF]" />
@@ -236,7 +221,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      <main className="min-h-screen pt-[65px] pb-[96px] xl:ml-[250px] xl:pt-0 xl:pb-0">
+      <main className="min-h-screen pb-[96px] xl:ml-[250px] xl:pt-0 xl:pb-0">
         {children}
       </main>
 

@@ -84,9 +84,47 @@ Edit `.env` with your credentials:
 # Apply schema migrations
 npm run migrate
 
-# Seed sample data (30 Indian pincodes)
+# Auto-import real pincodes if a dataset exists in Backend/data/pincodes/
 npm run seed
+
+# Force sample-only fallback data
+npm run seed:sample
+
+# Import a specific file
+npm run import:pincodes -- --file ./data/pincodes/india-pincodes.csv
+
+# Recompute pincode locality winners from existing users
+npm run recompute:localities
 ```
+
+### Pincode Data
+
+For real testing, put a real India pincode dataset inside:
+
+`Backend/data/pincodes/`
+
+Supported names:
+- `india-pincodes.csv`
+- `india_pincodes.csv`
+- `india-pincodes.json`
+- `india_pincodes.json`
+- `india-pincodes-full.csv`
+- `india_pincodes_full.csv`
+- `pincodes.csv`
+- `pincodes.json`
+
+The import flow validates pincodes, deduplicates rows, keeps the fallback `000000` row, and generates nearby `neighbor_codes` automatically from coordinates.
+For production imports, use `PINCODE_IMPORT_MODE=replace` so the master table is refreshed cleanly in one pass.
+
+### Locality Consensus
+
+PinLocal can learn a canonical locality name per pincode from real users:
+
+- GPS / detected locality only: weight `1`
+- User accepted / confirmed locality: weight `2`
+- User manually edited locality: weight `4`
+
+Once a pincode reaches enough contributors and a strong winner, the backend can use that pincode-level winner directly and skip unnecessary reverse-geocoding calls for later users in the same area.
 
 ## Running
 
@@ -151,6 +189,10 @@ R2_ACCOUNT_ID           # Cloudflare R2 account (optional)
 R2_ACCESS_KEY_ID        # R2 API key (optional)
 R2_SECRET_ACCESS_KEY    # R2 API secret (optional)
 CDN_BASE_URL            # R2 CDN base URL (optional)
+PINCODE_DATA_FILE       # Optional CSV/JSON path for pincode import
+PINCODE_NEIGHBOR_RADIUS_KM
+PINCODE_NEIGHBOR_MAX_COUNT
+PINCODE_IMPORT_BATCH_SIZE
 ```
 
 ## Development Notes

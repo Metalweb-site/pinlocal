@@ -1,6 +1,8 @@
 'use client'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ArrowRight, MapPin, ShieldCheck } from 'lucide-react'
 import { sendOtp } from '@/lib/api'
 import { useAuthStore } from '@/store/auth.store'
 import Button from '@/components/ui/Button'
@@ -8,7 +10,7 @@ import toast from 'react-hot-toast'
 import StatusDot from '@/components/shared/StatusDot'
 
 export default function LoginPage() {
-  const [phone,   setPhone]   = useState('')
+  const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(false)
   const { setPhone: storePhone } = useAuthStore()
   const router = useRouter()
@@ -29,53 +31,105 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-bg relative overflow-hidden">
-      <div className="absolute inset-0 grid-bg opacity-70 pointer-events-none" />
-      
-      <div className="flex flex-col flex-1 px-6 pt-20 pb-10 max-w-sm mx-auto w-full relative z-10">
-        {/* Live tag */}
-        <div className="flex items-center gap-2 bg-surface border border-border rounded-[8px] px-3 py-2 w-fit mb-12 animate-fade-up">
-          <StatusDot color="#2A7F62" size={7} />
-          <span className="text-text2 text-[12px] font-semibold">Live in India</span>
-        </div>
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#F7FAFF]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(7,92,255,0.10),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(7,92,255,0.08),transparent_28%)]" />
+      <div className="pointer-events-none absolute inset-0 grid-bg opacity-40" />
 
-        {/* Headline */}
-        <div className="animate-fade-up" style={{ animationDelay: '0.1s' }}>
-          <h1 className="font-body font-black text-[52px] leading-[0.92] tracking-[-0.06em] mb-6">
-            Your pincode, organized.
-          </h1>
-          <p className="text-text2 text-[15px] leading-relaxed mb-auto max-w-[280px] font-medium">
-            Connect with real people in your pincode. Discover local groups, join conversations.
-          </p>
-        </div>
-
-        {/* Form */}
-        <div className="mt-16 animate-fade-up" style={{ animationDelay: '0.2s' }}>
-          <div className="group flex items-center bg-surface border border-border rounded-[8px] mb-4 overflow-hidden focus-within:border-text1 transition-all duration-300">
-            <div className="px-4 h-[56px] flex items-center font-mono text-[15px] font-bold text-text2 border-r border-border bg-bg">
-              +91
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-5 pb-6 pt-6 sm:px-6 sm:pb-8 sm:pt-10">
+        <div className="flex items-center justify-between gap-3 animate-fade-up">
+          <div className="flex items-center gap-3">
+            <div className="grid h-14 w-14 place-items-center rounded-[16px] bg-[#075CFF] text-white shadow-[0_16px_36px_rgba(7,92,255,0.24)]">
+              <MapPin size={28} strokeWidth={2.6} />
             </div>
-            <input
-              type="tel"
-              inputMode="numeric"
-              maxLength={10}
-              value={phone}
-              onChange={e => setPhone(e.target.value.replace(/\D/g, ''))}
-              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-              placeholder="Phone Number"
-              className="flex-1 bg-transparent h-[56px] px-4 text-text1 font-mono text-[17px] outline-none placeholder:text-text3 tracking-wider"
-            />
+            <div>
+              <p className="text-[26px] font-black tracking-[-0.05em] text-[#081234]">PinLocal</p>
+              <p className="text-[12px] font-bold text-[#697391]">Neighbourhood network</p>
+            </div>
           </div>
-          
-          <Button onClick={handleSubmit} loading={loading}>
-            Send OTP →
-          </Button>
-          
-          <div className="flex flex-col items-center gap-6 mt-10">
-            <p className="text-center text-[12px] text-text3 font-medium px-4">
-              By continuing, you agree to our <span className="text-text2 underline underline-offset-4 decoration-white/10">Terms</span> and <span className="text-text2 underline underline-offset-4 decoration-white/10">Privacy Policy</span>.
-            </p>
-            <div className="w-1 h-1 rounded-full bg-border" />
+
+          <div className="flex items-center gap-2 rounded-full border border-[#DDE5F3] bg-white px-3 py-2 shadow-[0_10px_24px_rgba(30,56,104,0.04)]">
+            <StatusDot color="#2A7F62" size={7} />
+            <span className="text-[12px] font-semibold text-[#44506E]">India live</span>
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-1 items-start sm:mt-8 sm:items-center">
+          <div className="w-full animate-fade-up" style={{ animationDelay: '0.1s' }}>
+            <div className="form-card overflow-hidden p-5 sm:p-6">
+              <div className="rounded-[22px] bg-[linear-gradient(135deg,#F4F8FF_0%,#FFFFFF_55%,#F8FBFF_100%)] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.95)]">
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#D7E5FF] bg-white px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#075CFF] shadow-[0_10px_20px_rgba(7,92,255,0.06)]">
+                  <ShieldCheck size={14} />
+                  OTP sign-in
+                </div>
+
+                <h1 className="mt-4 font-body text-[34px] font-black leading-[0.94] tracking-[-0.05em] text-[#081234] sm:text-[40px]">
+                  Enter your number. Get in fast.
+                </h1>
+                <p className="mt-3 max-w-[320px] text-[14px] font-semibold leading-relaxed text-[#697391]">
+                  One OTP, then your feed, groups, chats, and local community open up.
+                </p>
+              </div>
+
+              <div className="mt-5">
+                <label className="block">
+                  <span className="form-label">Phone number</span>
+                  <div className="flex overflow-hidden rounded-[16px] border border-[#D8E2F2] bg-white shadow-[0_14px_30px_rgba(30,56,104,0.05)] transition-all focus-within:border-[#075CFF] focus-within:shadow-[0_0_0_4px_rgba(7,92,255,0.10),0_18px_36px_rgba(7,92,255,0.10)]">
+                    <div className="flex h-[56px] items-center border-r border-[#E4EAF5] bg-[#F8FBFF] px-4 font-mono text-[15px] font-black text-[#44506E]">
+                      +91
+                    </div>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      value={phone}
+                      onChange={e => setPhone(e.target.value.replace(/\D/g, ''))}
+                      onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                      placeholder="10-digit mobile number"
+                      className="h-[56px] flex-1 bg-transparent px-4 font-mono text-[18px] font-black tracking-[0.06em] text-[#081234] outline-none placeholder:tracking-normal placeholder:text-[#8B96B2]"
+                    />
+                  </div>
+                </label>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="form-section flex items-center gap-3 p-3">
+                  <div className="grid h-10 w-10 place-items-center rounded-[12px] bg-[#EEF4FF] text-[#075CFF]">
+                    <ShieldCheck size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-black text-[#081234]">Secure</p>
+                    <p className="mt-1 text-[11px] font-semibold text-[#697391]">OTP-based access</p>
+                  </div>
+                </div>
+                <div className="form-section flex items-center gap-3 p-3">
+                  <div className="grid h-10 w-10 place-items-center rounded-[12px] bg-[#EEF4FF] text-[#075CFF]">
+                    <MapPin size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-black text-[#081234]">Local-first</p>
+                    <p className="mt-1 text-[11px] font-semibold text-[#697391]">Built around your pincode</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5">
+                <Button onClick={handleSubmit} loading={loading} className="h-[56px] text-[15px]">
+                  <span className="flex items-center gap-2">
+                    Send OTP
+                    <ArrowRight size={16} />
+                  </span>
+                </Button>
+              </div>
+
+              <p className="mt-4 text-center text-[12px] font-medium leading-relaxed text-[#697391]">
+                By continuing, you agree to our <span className="font-bold text-[#081234]">Terms</span> and <span className="font-bold text-[#081234]">Privacy Policy</span>.
+              </p>
+            </div>
+
+            <div className="mt-4 flex items-center justify-center gap-2 text-[11px] font-semibold text-[#697391] sm:hidden">
+              <StatusDot color="#2A7F62" size={6} />
+              Fast sign-in for India numbers
+            </div>
           </div>
         </div>
       </div>

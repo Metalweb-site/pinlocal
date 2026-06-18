@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   Bookmark,
@@ -52,7 +52,7 @@ export default function PublicProfilePage() {
   const [chatting, setChatting] = useState(false)
   const [activeTab, setActiveTab] = useState<PublicTab>('Overview')
 
-  const loadProfile = () => {
+  const loadProfile = useCallback(() => {
     setLoading(true)
     getPublicProfile(params.userId)
       .then(res => {
@@ -68,12 +68,12 @@ export default function PublicProfilePage() {
         router.back()
       })
       .finally(() => setLoading(false))
-  }
+  }, [params.userId, router])
 
   useEffect(() => {
     if (authLoading) return
     loadProfile()
-  }, [authLoading, params.userId])
+  }, [authLoading, loadProfile])
 
   const toggleConnection = async () => {
     if (!profile || connecting || profile.id === viewer?.id) return
